@@ -1,51 +1,42 @@
-// SFO surface panel — "who's next": a mini airport diagram drawn from the
-// real runway geometry with live ground traffic from airplanes.live (via the
-// server's sfoGround feed). Taxiing aircraft (the ones about to be overhead)
-// glow; parked/stationary traffic stays dim. Shown on the TV and the Twitch
-// stream layout; the vertical TikTok page doesn't render it.
+// Airport surface panel — "who's next": a mini airport diagram drawn from
+// the configured runway geometry with live ground traffic from airplanes.live.
 
 import { useMemo } from "react";
-import type { GroundAircraft } from "@shared/index.js";
-import { DEG, SFO_AIRPORT as SFO } from "@shared/index.js";
+import type { Airport, GroundAircraft } from "@shared/index.js";
+import { DEG } from "@shared/index.js";
 
-/** Diagram center: SFO ARP. */
-const LAT0 = 37.6213;
-const LON0 = -122.379;
-/** Meters per degree at SFO's latitude. */
 const M_PER_LAT = 110540;
-const M_PER_LON = 111320 * Math.cos(LAT0 * DEG);
-/** Diagram extent: ±this many meters from the ARP. */
 const EXTENT_M = 2300;
-const VIEW = 300; // square viewBox
+const VIEW = 300;
+const TAXI_MIN_KT = 3;
 
-function toXY(lat: number, lon: number): { x: number; y: number } {
-  const e = (lon - LON0) * M_PER_LON;
-  const n = (lat - LAT0) * M_PER_LAT;
+function toXY(airport: Airport, lat: number, lon: number): { x: number; y: number } {
+  const metersPerLon = 111320 * Math.cos(airport.lat * DEG);
+  const e = (lon - airport.lon) * metersPerLon;
+  const n = (lat - airport.lat) * M_PER_LAT;
   return {
     x: VIEW / 2 + (e / EXTENT_M) * (VIEW / 2),
     y: VIEW / 2 - (n / EXTENT_M) * (VIEW / 2),
   };
 }
 
-/** Moving on the surface = taxiing/rolling; these are the "next up" planes. */
-const TAXI_MIN_KT = 3;
-
-export function SfoGroundPanel(props: {
+export function AirportGroundPanel(props: {
+  airport: Airport;
   ground: { at: number; aircraft: GroundAircraft[] } | null;
 }): JSX.Element | null {
-  const { ground } = props;
+  const { airport, ground } = props;
   const runways = useMemo(
     () =>
-      SFO.runways.map((r) => ({
-        a: toXY(r.le[0], r.le[1]),
-        b: toXY(r.he[0], r.he[1]),
+      airport.runways.map((r) => ({
+        a: toXY(airport, r.le[0], r.le[1]),
+        b: toXY(airport, r.he[0], r.he[1]),
       })),
-    [],
+    [airport],
   );
   if (!ground) return null;
 
   const planes = ground.aircraft.filter((a) => {
-    const p = toXY(a.lat, a.lon);
+    const p = toXY(airport, a.lat, a.lon);
     return p.x >= 0 && p.x <= VIEW && p.y >= 0 && p.y <= VIEW;
   });
   const taxiing = planes
@@ -56,10 +47,9 @@ export function SfoGroundPanel(props: {
   return (
     <aside className="tv-ground">
       <div className="tv-ground-title">
-        SFO GROUND · {planes.length} AIRCRAFT
+        {airport.name} GROUND · {planes.length} AIRCRAFT
       </div>
       <svg viewBox={`0 0 ${VIEW} ${VIEW}`} className="tv-ground-map">
-        {/* runways */}
         {runways.map((r, i) => (
           <line
             key={i}
@@ -70,9 +60,8 @@ export function SfoGroundPanel(props: {
             className="tv-ground-runway"
           />
         ))}
-        {/* aircraft */}
         {planes.map((a) => {
-          const p = toXY(a.lat, a.lon);
+          const p = toXY(airport, a.lat, a.lon);
           const moving = (a.gsKt ?? 0) >= TAXI_MIN_KT;
           const rot = a.trackDeg ?? 0;
           return (

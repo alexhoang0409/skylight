@@ -16,8 +16,8 @@ export interface StreamState {
   now: number;
   aircraft: Aircraft[];
   status: SourceStatus | null;
-  /** SFO surface traffic snapshot (TV / stream "who's next" panel). */
-  sfoGround: { at: number; aircraft: GroundAircraft[] } | null;
+  /** Airport surface traffic snapshot (TV / stream "who's next" panel). */
+  airportGround: { at: number; aircraft: GroundAircraft[] } | null;
 }
 
 type Listener = (state: StreamState) => void;
@@ -34,7 +34,7 @@ export class Connection {
     now: 0,
     aircraft: [],
     status: null,
-    sfoGround: null,
+    airportGround: null,
   };
 
   constructor(private role: "display" | "control") {}
@@ -93,8 +93,8 @@ export class Connection {
       case "status":
         this.update({ status: msg.status });
         break;
-      case "sfoGround":
-        this.update({ sfoGround: { at: msg.at, aircraft: msg.aircraft } });
+      case "airportGround":
+        this.update({ airportGround: { at: msg.at, aircraft: msg.aircraft } });
         break;
     }
   }

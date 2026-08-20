@@ -16,7 +16,7 @@ import { TleStore } from "./tle.js";
 import { SatCatStore } from "./satcat.js";
 import { resolveLocation } from "./geocode.js";
 import { buildHostMatcher, originHostname } from "./allowed-hosts.js";
-import { SfoGroundPoller } from "./sfo-ground.js";
+import { AirportGroundPoller } from "./airport-ground.js";
 import { lookupAirport, lookupCity } from "./airports.js";
 import { lookupAirlineByCallsign } from "./airlines.js";
 
@@ -26,12 +26,13 @@ const WEB_DIST = resolve(__dirname, "../../web/dist");
 
 const PORT = Number(process.env.PORT ?? 3000);
 const HOST = process.env.HOST ?? "0.0.0.0";
-const SOURCE = (process.env.DATA_SOURCE as DataSource) ?? "radio";
+const SOURCE = (process.env.DATA_SOURCE as DataSource) ?? "api";
 const RADIO_URL =
   process.env.AIRCRAFT_JSON_URL ?? "http://localhost:8080/data/aircraft.json";
 const API_URL =
-  process.env.API_URL ?? "https://api.airplanes.live/v2/point/{lat}/{lon}/{r}";
-const POLL_MS = Number(process.env.POLL_MS ?? 1000);
+  process.env.API_URL ??
+  "https://opendata.adsb.fi/api/v3/lat/{lat}/lon/{lon}/dist/{r}";
+const POLL_MS = Number(process.env.POLL_MS ?? 1500);
 const ROUTE_CACHE_HOURS = Number(process.env.ROUTE_CACHE_HOURS ?? 12);
 // When on radio, also poll the API and merge (keeps landing aircraft alive).
 const SUPPLEMENT_API = (process.env.SUPPLEMENT_API ?? "1") !== "0";
@@ -103,7 +104,7 @@ async function main(): Promise<void> {
     store,
     getSnapshot: () => poller.getSnapshot(),
     getStatus: () => poller.getStatus(),
-    getSfoGround: () => sfoGround.getSnapshot(),
+    getAirportGround: () => airportGround.getSnapshot(),
     isOriginAllowed: (origin) => {
       // No Origin header: not a browser (curl/scripts). Allow — the WS
       // hijack risk is browser-only.
@@ -125,10 +126,11 @@ async function main(): Promise<void> {
     onStatus: (status) => hub.broadcastStatus(status),
   });
 
-  // SFO surface traffic (airplanes.live) — the "who's next" panel on the TV
+  // Airport surface traffic (airplanes.live) — the "who's next" panel on the TV
   // and Twitch stream. Local receiver can't hear ground targets at 13 mi.
-  const sfoGround = new SfoGroundPoller((at, aircraft) =>
-    hub.broadcastSfoGround(at, aircraft),
+  const airportGround = new AirportGroundPoller(
+    () => store.get().airport,
+    (at, aircraft) => hub.broadcastAirportGround(at, aircraft),
   );
 
   // --- REST API (handy for debugging + non-WS clients) ---
@@ -221,7 +223,7 @@ async function main(): Promise<void> {
   }
 
   poller.start();
-  sfoGround.start();
+  airportGround.start();
 
   server.listen(PORT, HOST, () => {
     console.log(`[server] listening on http://${HOST}:${PORT}`);
