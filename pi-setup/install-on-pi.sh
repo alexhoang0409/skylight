@@ -113,10 +113,15 @@ pnpm build
 
 echo "==> skylight-server systemd service"
 PNPM_BIN="$(command -v pnpm)"
+SERVICE_DATA_SOURCE="api"
+if [[ "$ENABLE_RADIO" == "1" ]]; then
+  SERVICE_DATA_SOURCE="radio"
+fi
 sudo sed \
   -e "s#__USER__#$USER_NAME#g" \
   -e "s#__APPDIR__#$APPDIR#g" \
   -e "s#__PNPM__#$PNPM_BIN#g" \
+  -e "s#Environment=DATA_SOURCE=.*#Environment=DATA_SOURCE=${SERVICE_DATA_SOURCE}#g" \
   "$APPDIR/pi-setup/skylight-server.service" \
   | sudo tee /etc/systemd/system/skylight-server.service >/dev/null
 sudo systemctl daemon-reload
