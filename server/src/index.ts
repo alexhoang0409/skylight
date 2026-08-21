@@ -39,15 +39,9 @@ const ROUTE_CACHE_HOURS = Number(process.env.ROUTE_CACHE_HOURS ?? 12);
 // multiple pollers without tying the logic to a single endpoint.
 const API_MIN_INTERVAL_MS = Number(process.env.API_MIN_INTERVAL_MS ?? 1200);
 const API_BACKOFF_MS = Number(process.env.API_BACKOFF_MS ?? 15_000);
-const GROUND_MIN_INTERVAL_MS = Number(process.env.GROUND_MIN_INTERVAL_MS ?? 1200);
-const GROUND_BACKOFF_MS = Number(process.env.GROUND_BACKOFF_MS ?? 15_000);
 const requestGate = new RequestGate({
   minIntervalMs: API_MIN_INTERVAL_MS,
   backoffMs: API_BACKOFF_MS,
-});
-const groundRequestGate = new RequestGate({
-  minIntervalMs: GROUND_MIN_INTERVAL_MS,
-  backoffMs: GROUND_BACKOFF_MS,
 });
 // When on radio, also poll the API and merge (keeps landing aircraft alive).
 const SUPPLEMENT_API = (process.env.SUPPLEMENT_API ?? "1") !== "0";
@@ -147,7 +141,7 @@ async function main(): Promise<void> {
   const airportGround = new AirportGroundPoller({
     getAirport: () => store.get().airport,
     onUpdate: (at, aircraft) => hub.broadcastAirportGround(at, aircraft),
-    requestGate: groundRequestGate,
+    requestGate,
   });
 
   // --- REST API (handy for debugging + non-WS clients) ---

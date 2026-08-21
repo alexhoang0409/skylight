@@ -45,14 +45,17 @@ ssh pi@skylight.local        # or ssh pi@<pi-ip>
 Copy the repo to the Pi and run the installer:
 
 ```bash
-git clone https://github.com/cpaczek/skylight.git ~/skylight   # or rsync it over
+git clone https://github.com/alexhoang0409/skylight.git ~/skylight   # or rsync it over
 cd ~/skylight
-LAT=37.6213 LON=-122.379 ./pi-setup/install-on-pi.sh            # set your coordinates
+./pi-setup/install-on-pi.sh
 ```
 
-Installs the rtl-sdr-blog V4 driver (+ DVB-T blacklist), dump1090-fa, Node + pnpm,
-builds the app, and enables the `skylight-server` service. **Verify decode first** with
-`rtl_test -t` and `curl -s localhost:8080/data/aircraft.json | head` before moving on.
+Installs the app and enables the `skylight-server` service in API mode by default. If
+you later add an RTL-SDR, run:
+
+```bash
+ENABLE_RADIO=1 LAT=37.6213 LON=-122.379 ./pi-setup/install-on-pi.sh
+```
 
 ## 3. Kiosk display - on the Pi
 
