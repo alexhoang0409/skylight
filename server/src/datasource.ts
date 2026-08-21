@@ -7,6 +7,7 @@ import type { SourceStatus } from "@shared/index.js";
 import { NM_PER_MILE, llToMeters, metersToMiles, rangeMeters } from "@shared/index.js";
 import { lookupAirline, lookupType } from "./enrich/tables.js";
 import type { RouteEnricher } from "./enrich/routes.js";
+import { RequestGate } from "./request-gate.js";
 
 /** Raw readsb-style aircraft record (subset we use). */
 interface RawAircraft {
@@ -99,6 +100,8 @@ export interface PollerOptions {
   supplementApi: boolean;
   /** API poll cadence when supplementing (slower, to respect rate limits). */
   apiPollMs: number;
+  /** Shared outbound request gate for all external API fetches. */
+  requestGate: RequestGate;
   getConfig: () => Config;
   enricher: RouteEnricher;
   onSnapshot: (now: number, aircraft: Aircraft[]) => void;
@@ -156,8 +159,10 @@ export class Poller {
   private lastErrorLogAt = 0;
   /** After an HTTP 429, no API requests until this timestamp. */
   private apiBackoffUntil = 0;
+  private readonly requestGate: RequestGate;
 
   constructor(private o: PollerOptions) {
+    this.requestGate = o.requestGate;
     this.status = {
       source: o.source,
       ok: false,
@@ -214,6 +219,7 @@ export class Poller {
   private async fetchList(source: DataSource, now: number): Promise<Aircraft[] | null> {
     const url = source === "radio" ? this.o.getConfig().radioUrl : this.buildApiUrl();
     try {
+      await this.requestGate.waitForSlot();
       const json = await fetchJson(url);
       const rawList: RawAircraft[] = json.aircraft ?? json.ac ?? [];
       const list: Aircraft[] = [];
@@ -230,6 +236,7 @@ export class Poller {
       const reason = describeFetchError(e);
       if (source === "api" && reason === "HTTP 429") {
         this.apiBackoffUntil = now + RATE_LIMIT_BACKOFF_MS;
+        this.requestGate.markRateLimited(now);
       }
       let host = url;
       try {

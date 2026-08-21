@@ -9,9 +9,10 @@
 
 import type { GroundAircraft } from "@shared/index.js";
 import type { Airport } from "@shared/airport.js";
+import { RequestGate } from "./request-gate.js";
 
 const RADIUS_NM = 3;
-const POLL_MS = 6000;
+const POLL_MS = Number(process.env.GROUND_POLL_MS ?? 6000);
 const API_BASE_URL = "https://opendata.adsb.fi/api/v3/lat";
 
 /** Raw airplanes.live aircraft record (the fields we read). */
@@ -28,15 +29,21 @@ interface AlAircraft {
   lon?: number;
 }
 
+export interface AirportGroundPollerOptions {
+  getAirport: () => Airport;
+  onUpdate: (at: number, aircraft: GroundAircraft[]) => void;
+  requestGate: RequestGate;
+}
+
 export class AirportGroundPoller {
   private timer: ReturnType<typeof setInterval> | null = null;
   private last: { at: number; aircraft: GroundAircraft[] } | null = null;
   private lastErrorLogAt = 0;
+  private readonly requestGate: RequestGate;
 
-  constructor(
-    private getAirport: () => Airport,
-    private onUpdate: (at: number, aircraft: GroundAircraft[]) => void,
-  ) {}
+  constructor(private opts: AirportGroundPollerOptions) {
+    this.requestGate = opts.requestGate;
+  }
 
   /** Latest snapshot for late-joining clients (null until first success). */
   getSnapshot(): { at: number; aircraft: GroundAircraft[] } | null {
@@ -56,10 +63,16 @@ export class AirportGroundPoller {
 
   private async poll(): Promise<void> {
     try {
-      const airport = this.getAirport();
+      const airport = this.opts.getAirport();
       const url = `${API_BASE_URL}/${airport.lat}/lon/${airport.lon}/dist/${RADIUS_NM}`;
+      await this.requestGate.waitForSlot();
       const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        if (res.status === 429) {
+          this.requestGate.markRateLimited();
+        }
+        throw new Error(`HTTP ${res.status}`);
+      }
       const body = (await res.json()) as { ac?: AlAircraft[] };
       const aircraft: GroundAircraft[] = [];
       for (const a of body.ac ?? []) {
@@ -82,7 +95,7 @@ export class AirportGroundPoller {
       }
       const at = Date.now();
       this.last = { at, aircraft };
-      this.onUpdate(at, aircraft);
+      this.opts.onUpdate(at, aircraft);
     } catch (err) {
       // Quietly tolerant: log at most once a minute.
       const now = Date.now();

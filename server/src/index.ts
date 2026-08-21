@@ -11,6 +11,7 @@ import { DEFAULT_CONFIG, type Config, type DataSource } from "@shared/index.js";
 import { ConfigStore, ConfigValidationError } from "./config-store.js";
 import { RouteEnricher } from "./enrich/routes.js";
 import { Poller } from "./datasource.js";
+import { RequestGate } from "./request-gate.js";
 import { Hub } from "./hub.js";
 import { TleStore } from "./tle.js";
 import { SatCatStore } from "./satcat.js";
@@ -34,6 +35,20 @@ const API_URL =
   "https://opendata.adsb.fi/api/v3/lat/{lat}/lon/{lon}/dist/{r}";
 const POLL_MS = Number(process.env.POLL_MS ?? 1500);
 const ROUTE_CACHE_HOURS = Number(process.env.ROUTE_CACHE_HOURS ?? 12);
+// Shared request gate for outbound API polling: keep providers happy across
+// multiple pollers without tying the logic to a single endpoint.
+const API_MIN_INTERVAL_MS = Number(process.env.API_MIN_INTERVAL_MS ?? 1200);
+const API_BACKOFF_MS = Number(process.env.API_BACKOFF_MS ?? 15_000);
+const GROUND_MIN_INTERVAL_MS = Number(process.env.GROUND_MIN_INTERVAL_MS ?? 1200);
+const GROUND_BACKOFF_MS = Number(process.env.GROUND_BACKOFF_MS ?? 15_000);
+const requestGate = new RequestGate({
+  minIntervalMs: API_MIN_INTERVAL_MS,
+  backoffMs: API_BACKOFF_MS,
+});
+const groundRequestGate = new RequestGate({
+  minIntervalMs: GROUND_MIN_INTERVAL_MS,
+  backoffMs: GROUND_BACKOFF_MS,
+});
 // When on radio, also poll the API and merge (keeps landing aircraft alive).
 const SUPPLEMENT_API = (process.env.SUPPLEMENT_API ?? "1") !== "0";
 const API_POLL_MS = Number(process.env.API_POLL_MS ?? 4000);
@@ -120,6 +135,7 @@ async function main(): Promise<void> {
     pollMs: POLL_MS,
     supplementApi: SUPPLEMENT_API,
     apiPollMs: API_POLL_MS,
+    requestGate,
     getConfig: () => store.get(),
     enricher,
     onSnapshot: (now, aircraft) => hub.broadcastAircraft(now, aircraft),
@@ -128,10 +144,11 @@ async function main(): Promise<void> {
 
   // Airport surface traffic (airplanes.live) — the "who's next" panel on the TV
   // and Twitch stream. Local receiver can't hear ground targets at 13 mi.
-  const airportGround = new AirportGroundPoller(
-    () => store.get().airport,
-    (at, aircraft) => hub.broadcastAirportGround(at, aircraft),
-  );
+  const airportGround = new AirportGroundPoller({
+    getAirport: () => store.get().airport,
+    onUpdate: (at, aircraft) => hub.broadcastAirportGround(at, aircraft),
+    requestGate: groundRequestGate,
+  });
 
   // --- REST API (handy for debugging + non-WS clients) ---
   app.get("/api/health", (_req, res) => res.json({ ok: true }));
