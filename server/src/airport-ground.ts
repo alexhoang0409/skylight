@@ -3,7 +3,7 @@
 // receiver rarely hears surface targets 13 mi away at ground level, so this
 // comes from the aggregator instead.
 //
-// Polite polling: ground traffic is supplemental, so refresh it less often
+// Polite polling: ground traffic is supplemental, so refresh it much less often
 // than the aircraft feed. Failures skip the tick and keep the last snapshot.
 
 import type { GroundAircraft } from "@shared/index.js";
@@ -11,7 +11,7 @@ import type { Airport } from "@shared/airport.js";
 import { RequestGate } from "./request-gate.js";
 
 const RADIUS_NM = 3;
-const POLL_MS = Number(process.env.GROUND_POLL_MS ?? 30_000);
+const POLL_MS = Number(process.env.GROUND_POLL_MS ?? 60_000);
 const API_BASE_URL = "https://opendata.adsb.fi/api/v3/lat";
 
 /** Raw airplanes.live aircraft record (the fields we read). */
@@ -64,7 +64,7 @@ export class AirportGroundPoller {
     try {
       const airport = this.opts.getAirport();
       const url = `${API_BASE_URL}/${airport.lat}/lon/${airport.lon}/dist/${RADIUS_NM}`;
-      await this.requestGate.waitForSlot();
+      await this.requestGate.waitForSlot("normal");
       const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
       if (!res.ok) {
         if (res.status === 429) {

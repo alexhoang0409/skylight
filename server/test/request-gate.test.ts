@@ -22,4 +22,16 @@ describe("RequestGate", () => {
 
     expect(gate.nextAllowedAt()).toBeGreaterThanOrEqual(now + 500);
   });
+
+  it("grants high-priority requests before queued normal requests", async () => {
+    const gate = new RequestGate({ minIntervalMs: 50, backoffMs: 0 });
+    const order: string[] = [];
+
+    const first = gate.waitForSlot("normal").then(() => order.push("first"));
+    const ground = gate.waitForSlot("normal").then(() => order.push("ground"));
+    const aircraft = gate.waitForSlot("high").then(() => order.push("aircraft"));
+
+    await Promise.all([first, ground, aircraft]);
+    expect(order).toEqual(["first", "aircraft", "ground"]);
+  });
 });
