@@ -11,6 +11,9 @@ import { RequestGate } from "./request-gate.js";
 
 const RADIUS_NM = 3;
 const POLL_MS = Number(process.env.GROUND_POLL_MS ?? 60_000);
+const USER_AGENT =
+  process.env.GROUND_USER_AGENT ??
+  "skylight/0.1 (https://github.com/alexhoang0409/skylight)";
 
 /** Raw readsb-style aircraft record (the fields we read). */
 interface AlAircraft {
@@ -68,7 +71,10 @@ export class AirportGroundPoller {
         .replace("{lon}", String(airport.lon))
         .replace("{r}", String(RADIUS_NM));
       await this.requestGate.waitForSlot("normal");
-      const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+      const res = await fetch(url, {
+        headers: { "User-Agent": USER_AGENT },
+        signal: AbortSignal.timeout(5000),
+      });
       if (!res.ok) {
         if (res.status === 429) {
           this.requestGate.markRateLimited();

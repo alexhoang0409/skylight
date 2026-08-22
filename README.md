@@ -283,6 +283,7 @@ geometry - turn off **Airport runways** if you've moved, or replace it in
 | `API_URL` | `https://opendata.adsb.fi/api/v3/lat/{lat}/lon/{lon}/dist/{r}` | Aircraft API URL template |
 | `GROUND_API_URL` | `https://api.adsb.lol/v2/lat/{lat}/lon/{lon}/dist/{r}` | Ground traffic API URL template |
 | `GROUND_POLL_MS` | `60000` | Ground traffic refresh interval |
+| `GROUND_USER_AGENT` | *(skylight default)* | Contact identifier sent to the ground API |
 | `SUPPLEMENT_API` | `1` | When on radio, merge the API too (keeps landing aircraft alive) |
 | `PORT` / `HOST` | `3000` / `0.0.0.0` | HTTP + WebSocket |
 | `ALLOWED_HOSTS` | *(empty)* | Extra Host/Origin allowlist entries, comma-separated. Wildcards: `*.example.com`. Loopback, RFC1918 LAN, IPv6 ULA / link-local, and `*.local` are allowed by default. |

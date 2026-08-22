@@ -52,8 +52,9 @@ cd ~/skylight
 
 Installs the app and enables the `skylight-server` service in API mode by default.
 Aircraft traffic uses adsb.fi, while airport ground traffic uses adsb.lol and refreshes
-once per minute. Override the ground provider with `GROUND_API_URL` if needed. If you
-later add an RTL-SDR, run:
+once per minute. The ground request identifies itself with Skylight's project URL;
+override the provider or contact identifier with `GROUND_API_URL` or
+`GROUND_USER_AGENT` if needed. If you later add an RTL-SDR, run:
 
 ```bash
 ENABLE_RADIO=1 LAT=37.6213 LON=-122.379 ./pi-setup/install-on-pi.sh
