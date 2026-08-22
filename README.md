@@ -183,7 +183,8 @@ docker compose up -d --build
 # display:  http://<host>:3000/      ·  phone panel: http://<host>:3000/control
 ```
 
-Out of the box it uses the free **airplanes.live** API, so it runs with **no radio**.
+Out of the box it uses free public ADS-B APIs, so it runs with **no radio**. Aircraft
+traffic uses adsb.fi; airport ground traffic uses adsb.lol by default.
 To use your own ADS-B receiver, set `DATA_SOURCE=radio` and point `AIRCRAFT_JSON_URL`
 at an existing dump1090 / readsb / PiAware feed on your network (or just change the URL
 live from the control panel's **Source** section):
@@ -277,8 +278,11 @@ geometry - turn off **Airport runways** if you've moved, or replace it in
 
 | Env | Default | Meaning |
 |---|---|---|
-| `DATA_SOURCE` | `radio` | `radio` (dump1090) or `api` (airplanes.live) |
+| `DATA_SOURCE` | `api` | `radio` (dump1090) or `api` (public aircraft API) |
 | `AIRCRAFT_JSON_URL` | `http://localhost:8080/data/aircraft.json` | dump1090 feed |
+| `API_URL` | `https://opendata.adsb.fi/api/v3/lat/{lat}/lon/{lon}/dist/{r}` | Aircraft API URL template |
+| `GROUND_API_URL` | `https://api.adsb.lol/v2/lat/{lat}/lon/{lon}/dist/{r}` | Ground traffic API URL template |
+| `GROUND_POLL_MS` | `60000` | Ground traffic refresh interval |
 | `SUPPLEMENT_API` | `1` | When on radio, merge the API too (keeps landing aircraft alive) |
 | `PORT` / `HOST` | `3000` / `0.0.0.0` | HTTP + WebSocket |
 | `ALLOWED_HOSTS` | *(empty)* | Extra Host/Origin allowlist entries, comma-separated. Wildcards: `*.example.com`. Loopback, RFC1918 LAN, IPv6 ULA / link-local, and `*.local` are allowed by default. |
@@ -347,8 +351,8 @@ RTL-SDR ──USB──> dump1090-fa ──> aircraft.json (:8080)
 
 - ADS-B decode: [dump1090-fa](https://github.com/flightaware/dump1090) · RTL-SDR Blog
   [drivers](https://github.com/rtlsdrblog/rtl-sdr-blog)
-- Routes / aircraft enrichment: [adsbdb](https://www.adsbdb.com/) ·
-  fallback feed: [airplanes.live](https://airplanes.live/)
+- Routes / aircraft enrichment: [adsbdb](https://www.adsbdb.com/) · aircraft feed:
+  [adsb.fi](https://adsb.fi/) · ground feed: [adsb.lol](https://adsb.lol/)
 - Satellite elements: [Celestrak](https://celestrak.org/) · airport data:
   [OurAirports](https://ourairports.com/)
 

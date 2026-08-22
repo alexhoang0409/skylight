@@ -1,7 +1,6 @@
-// Airport surface traffic from the adsb.fi area API — feeds the "who's
-// taxiing / who's next" panel on the TV and the Twitch stream. The local
-// receiver rarely hears surface targets 13 mi away at ground level, so this
-// comes from the aggregator instead.
+// Airport surface traffic from an area API — feeds the "who's taxiing / who's
+// next" panel on the TV and the Twitch stream. The local receiver rarely hears
+// surface targets 13 mi away at ground level, so this comes from an aggregator.
 //
 // Polite polling: ground traffic is supplemental, so refresh it much less often
 // than the aircraft feed. Failures skip the tick and keep the last snapshot.
@@ -12,9 +11,8 @@ import { RequestGate } from "./request-gate.js";
 
 const RADIUS_NM = 3;
 const POLL_MS = Number(process.env.GROUND_POLL_MS ?? 60_000);
-const API_BASE_URL = "https://opendata.adsb.fi/api/v3/lat";
 
-/** Raw airplanes.live aircraft record (the fields we read). */
+/** Raw readsb-style aircraft record (the fields we read). */
 interface AlAircraft {
   hex?: string;
   flight?: string;
@@ -29,6 +27,8 @@ interface AlAircraft {
 }
 
 export interface AirportGroundPollerOptions {
+  /** Area URL template using {lat}, {lon}, and {r} placeholders. */
+  apiUrlTemplate: string;
   getAirport: () => Airport;
   onUpdate: (at: number, aircraft: GroundAircraft[]) => void;
   requestGate: RequestGate;
@@ -63,7 +63,10 @@ export class AirportGroundPoller {
   private async poll(): Promise<void> {
     try {
       const airport = this.opts.getAirport();
-      const url = `${API_BASE_URL}/${airport.lat}/lon/${airport.lon}/dist/${RADIUS_NM}`;
+      const url = this.opts.apiUrlTemplate
+        .replace("{lat}", String(airport.lat))
+        .replace("{lon}", String(airport.lon))
+        .replace("{r}", String(RADIUS_NM));
       await this.requestGate.waitForSlot("normal");
       const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
       if (!res.ok) {

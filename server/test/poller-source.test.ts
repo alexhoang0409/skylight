@@ -5,7 +5,7 @@ import type { RouteEnricher } from "../src/enrich/routes.js";
 import { RequestGate } from "../src/request-gate.js";
 
 // Regression test for #15: when the API is the *primary* source, the supplement
-// timer must not also poll it — the double request rate trips airplanes.live's
+// timer must not also poll it — the double request rate trips a provider's
 // rate limit and makes aircraft flicker out and back.
 
 const stubEnricher = { enrichSync: () => ({}) } as unknown as RouteEnricher;

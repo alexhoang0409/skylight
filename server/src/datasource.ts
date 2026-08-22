@@ -1,6 +1,6 @@
 // Data acquisition: poll the active source (radio | api), normalize records
 // into our Aircraft shape, enrich them, and emit snapshots. dump1090-fa and
-// airplanes.live both use the readsb JSON schema, so one normalizer covers both.
+// the supported public APIs use the readsb JSON schema, so one normalizer covers both.
 
 import type { Aircraft, Config, DataSource } from "@shared/index.js";
 import type { SourceStatus } from "@shared/index.js";
@@ -92,7 +92,7 @@ const RATE_LIMIT_BACKOFF_MS = 15_000;
 
 export interface PollerOptions {
   source: DataSource;
-  /** airplanes.live point template, {lat}/{lon}/{r} are filled from config. */
+  /** Aircraft API point template, {lat}/{lon}/{r} are filled from config. */
   apiUrlTemplate: string;
   pollMs: number;
   /** When source is "radio", also poll the API and merge (keeps landing
@@ -200,7 +200,7 @@ export class Poller {
    * The supplement timer should only run when the radio is primary — it exists
    * to keep landing aircraft alive when local ADS-B drops them. When the API is
    * itself the primary source, `tick()` already polls it, so a second timer just
-   * doubles the request rate into airplanes.live's rate limit (429s there make
+  * doubles the request rate into a provider's rate limit (429s there make
    * polls fail, the display extrapolates, then drops aircraft — the "planes
    * disappearing and reappearing" in #15). Reconcile it against the live source.
    */

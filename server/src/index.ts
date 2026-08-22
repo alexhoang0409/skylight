@@ -33,6 +33,9 @@ const RADIO_URL =
 const API_URL =
   process.env.API_URL ??
   "https://opendata.adsb.fi/api/v3/lat/{lat}/lon/{lon}/dist/{r}";
+const GROUND_API_URL =
+  process.env.GROUND_API_URL ??
+  "https://api.adsb.lol/v2/lat/{lat}/lon/{lon}/dist/{r}";
 const POLL_MS = Number(process.env.POLL_MS ?? 1500);
 const ROUTE_CACHE_HOURS = Number(process.env.ROUTE_CACHE_HOURS ?? 12);
 // Shared request gate for outbound API polling: keep providers happy across
@@ -43,6 +46,17 @@ const requestGate = new RequestGate({
   minIntervalMs: API_MIN_INTERVAL_MS,
   backoffMs: API_BACKOFF_MS,
 });
+const groundRequestGate = (() => {
+  try {
+    if (new URL(GROUND_API_URL).host === new URL(API_URL).host) return requestGate;
+  } catch {
+    // Invalid provider URLs are reported by the poller when it attempts a request.
+  }
+  return new RequestGate({
+    minIntervalMs: API_MIN_INTERVAL_MS,
+    backoffMs: API_BACKOFF_MS,
+  });
+})();
 // When on radio, also poll the API and merge (keeps landing aircraft alive).
 const SUPPLEMENT_API = (process.env.SUPPLEMENT_API ?? "1") !== "0";
 const API_POLL_MS = Number(process.env.API_POLL_MS ?? 4000);
@@ -136,12 +150,13 @@ async function main(): Promise<void> {
     onStatus: (status) => hub.broadcastStatus(status),
   });
 
-  // Airport surface traffic (airplanes.live) — the "who's next" panel on the TV
-  // and Twitch stream. Local receiver can't hear ground targets at 13 mi.
+  // Airport surface traffic — the "who's next" panel on the TV and Twitch
+  // stream. Local receiver can't hear ground targets at 13 mi.
   const airportGround = new AirportGroundPoller({
+    apiUrlTemplate: GROUND_API_URL,
     getAirport: () => store.get().airport,
     onUpdate: (at, aircraft) => hub.broadcastAirportGround(at, aircraft),
-    requestGate,
+    requestGate: groundRequestGate,
   });
 
   // --- REST API (handy for debugging + non-WS clients) ---
