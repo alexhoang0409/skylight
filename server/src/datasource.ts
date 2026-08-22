@@ -53,7 +53,14 @@ function normalize(raw: RawAircraft, ts: number): Aircraft | null {
 }
 
 async function fetchJson(url: string): Promise<any> {
-  const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent":
+        process.env.API_USER_AGENT ??
+        "skylight/0.1 (https://github.com/alexhoang0409/skylight)",
+    },
+    signal: AbortSignal.timeout(5000),
+  });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }

@@ -281,6 +281,7 @@ geometry - turn off **Airport runways** if you've moved, or replace it in
 | `DATA_SOURCE` | `api` | `radio` (dump1090) or `api` (public aircraft API) |
 | `AIRCRAFT_JSON_URL` | `http://localhost:8080/data/aircraft.json` | dump1090 feed |
 | `API_URL` | `https://opendata.adsb.fi/api/v3/lat/{lat}/lon/{lon}/dist/{r}` | Aircraft API URL template |
+| `API_USER_AGENT` | *(skylight default)* | Contact identifier sent to the aircraft API |
 | `GROUND_API_URL` | `https://api.adsb.lol/v2/lat/{lat}/lon/{lon}/dist/{r}` | Ground traffic API URL template |
 | `GROUND_POLL_MS` | `60000` | Ground traffic refresh interval |
 | `GROUND_USER_AGENT` | *(skylight default)* | Contact identifier sent to the ground API |

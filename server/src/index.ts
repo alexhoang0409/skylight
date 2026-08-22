@@ -36,7 +36,7 @@ const API_URL =
 const GROUND_API_URL =
   process.env.GROUND_API_URL ??
   "https://api.adsb.lol/v2/lat/{lat}/lon/{lon}/dist/{r}";
-const POLL_MS = Number(process.env.POLL_MS ?? 1500);
+const POLL_MS = Number(process.env.POLL_MS ?? 2000);
 const ROUTE_CACHE_HOURS = Number(process.env.ROUTE_CACHE_HOURS ?? 12);
 // Shared request gate for outbound API polling: keep providers happy across
 // multiple pollers without tying the logic to a single endpoint.
