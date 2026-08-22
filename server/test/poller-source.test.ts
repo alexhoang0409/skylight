@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_CONFIG } from "@shared/index.js";
 import { Poller, type PollerOptions } from "../src/datasource.js";
 import type { RouteEnricher } from "../src/enrich/routes.js";
+import { RequestGate } from "../src/request-gate.js";
 
 // Regression test for #15: when the API is the *primary* source, the supplement
 // timer must not also poll it — the double request rate trips airplanes.live's
@@ -16,6 +17,7 @@ function makeOpts(over: Partial<PollerOptions>): PollerOptions {
     pollMs: 1000,
     supplementApi: true,
     apiPollMs: 4000,
+    requestGate: new RequestGate({ minIntervalMs: 0, backoffMs: 0 }),
     getConfig: () => DEFAULT_CONFIG,
     enricher: stubEnricher,
     onSnapshot: () => {},

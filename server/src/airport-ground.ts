@@ -3,16 +3,15 @@
 // receiver rarely hears surface targets 13 mi away at ground level, so this
 // comes from the aggregator instead.
 //
-// Polite polling: one request every POLL_MS (the provider asks hobby users
-// to stay around 1 req/s; we're far under). Failures skip the tick and keep
-// the last snapshot — the panel just shows slightly stale dots.
+// Polite polling: ground traffic is supplemental, so refresh it less often
+// than the aircraft feed. Failures skip the tick and keep the last snapshot.
 
 import type { GroundAircraft } from "@shared/index.js";
 import type { Airport } from "@shared/airport.js";
 import { RequestGate } from "./request-gate.js";
 
 const RADIUS_NM = 3;
-const POLL_MS = Number(process.env.GROUND_POLL_MS ?? 6000);
+const POLL_MS = Number(process.env.GROUND_POLL_MS ?? 30_000);
 const API_BASE_URL = "https://opendata.adsb.fi/api/v3/lat";
 
 /** Raw airplanes.live aircraft record (the fields we read). */
