@@ -142,8 +142,10 @@ To make the projector follow one aircraft on a geographic map, open the control
 panel's **Projector** section, choose **Follow flight**, enter a currently live
 flight number, callsign, tail number, or ICAO hex, and tap **Follow**. Switch the
 same control back to **Local** to restore the original fixed-location sky/radar
-view. The follow view uses OpenStreetMap tiles, so its basemap needs internet
-access even when aircraft data comes from a local radio.
+view. Skylight checks the nearby feed first, then performs one rate-limited global
+live-aircraft lookup when needed. The follow view uses OpenStreetMap tiles, so
+global lookup and its basemap need internet access even when nearby aircraft data
+comes from a local radio.
 
 ### With a radio (locally)
 
@@ -290,6 +292,7 @@ geometry - turn off **Airport runways** if you've moved, or replace it in
 | `DATA_SOURCE` | `api` | `radio` (dump1090) or `api` (public aircraft API) |
 | `AIRCRAFT_JSON_URL` | `http://localhost:8080/data/aircraft.json` | dump1090 feed |
 | `API_URL` | `https://opendata.adsb.fi/api/v3/lat/{lat}/lon/{lon}/dist/{r}` | Aircraft API URL template |
+| `FLIGHT_LOOKUP_URL` | `https://opendata.adsb.fi/api/v2` | Base URL for global callsign, registration, and ICAO-hex lookup |
 | `API_USER_AGENT` | *(skylight default)* | Contact identifier sent to the aircraft API |
 | `GROUND_API_URL` | `https://api.adsb.lol/v2/lat/{lat}/lon/{lon}/dist/{r}` | Ground traffic API URL template |
 | `GROUND_POLL_MS` | `60000` | Ground traffic refresh interval |

@@ -10,7 +10,7 @@ import type { RouteEnricher } from "./enrich/routes.js";
 import { RequestGate } from "./request-gate.js";
 
 /** Raw readsb-style aircraft record (subset we use). */
-interface RawAircraft {
+export interface RawAircraft {
   hex?: string;
   flight?: string;
   lat?: number;
@@ -28,7 +28,7 @@ interface RawAircraft {
   rssi?: number;
 }
 
-function normalize(raw: RawAircraft, ts: number): Aircraft | null {
+export function normalizeAircraft(raw: RawAircraft, ts: number): Aircraft | null {
   if (!raw.hex) return null;
   const onGround = raw.alt_baro === "ground";
   return {
@@ -233,7 +233,7 @@ export class Poller {
       const rawList: RawAircraft[] = json.aircraft ?? json.ac ?? [];
       const list: Aircraft[] = [];
       for (const raw of rawList) {
-        const ac = normalize(raw, now);
+        const ac = normalizeAircraft(raw, now);
         if (ac) list.push(ac);
       }
       // Area APIs sometimes return a far wider box than the radius we asked

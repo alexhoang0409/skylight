@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import type { Airport, Config, ShowFields, LocationProfile } from "@shared/index.js";
+import type {
+  Aircraft,
+  Airport,
+  Config,
+  FlightSearchResponse,
+  ShowFields,
+  LocationProfile,
+} from "@shared/index.js";
 import {
   convertAltitude,
   convertAltitudeToFt,
@@ -54,6 +61,9 @@ export function Control() {
   // current live feed so an ambiguous flight number can never pick at random.
   const [flightQuery, setFlightQuery] = useState("");
   const [flightErr, setFlightErr] = useState<string | null>(null);
+  const [flightNote, setFlightNote] = useState<string | null>(null);
+  const [flightBusy, setFlightBusy] = useState(false);
+  const [flightCandidates, setFlightCandidates] = useState<Aircraft[]>([]);
   useEffect(() => {
     if (cfg?.followedFlight) setFlightQuery(cfg.followedFlight.label);
   }, [cfg?.followedFlight?.hex, cfg?.followedFlight?.label]);
@@ -89,12 +99,7 @@ export function Control() {
     conn.patchConfig({ showFields: { ...cfg.showFields, [k]: v } });
   const statusMessage = state.status?.message ? ` · ${state.status.message}` : "";
 
-  const followFlight = () => {
-    const match = findAircraftByIdentity(state.aircraft, flightQuery);
-    if (!match) {
-      setFlightErr("No unique live match. Try the callsign, tail number, or ICAO hex shown below.");
-      return;
-    }
+  const selectFlight = (match: Aircraft) => {
     if (match.lat == null || match.lon == null) {
       setFlightErr("That aircraft is live but has no map position yet.");
       return;
@@ -102,10 +107,56 @@ export function Control() {
     const label = match.flight?.trim() || match.registration || match.hex.toUpperCase();
     setFlightQuery(label);
     setFlightErr(null);
+    setFlightNote(null);
+    setFlightCandidates([]);
     set({
       displayMode: "follow",
       followedFlight: { hex: match.hex, label, lat: match.lat, lon: match.lon },
     });
+  };
+
+  const followFlight = async () => {
+    if (!flightQuery.trim() || flightBusy) return;
+    const localMatch = findAircraftByIdentity(state.aircraft, flightQuery);
+    if (localMatch) {
+      selectFlight(localMatch);
+      return;
+    }
+
+    setFlightBusy(true);
+    setFlightErr(null);
+    setFlightNote("Searching live aircraft worldwide…");
+    setFlightCandidates([]);
+    try {
+      const response = await fetch(`/api/flight-search?q=${encodeURIComponent(flightQuery)}`);
+      const body = await response.json() as FlightSearchResponse | { error?: string };
+      if (!response.ok) {
+        throw new Error("error" in body ? body.error || "Global flight search failed." : "Global flight search failed.");
+      }
+      const result = body as FlightSearchResponse;
+      if (result.aircraft.length === 0) {
+        setFlightNote(null);
+        setFlightErr(`No live global match for ${result.resolvedQuery}.`);
+        return;
+      }
+      const positioned = result.aircraft.filter((ac) => ac.lat != null && ac.lon != null);
+      if (positioned.length === 1) {
+        selectFlight(positioned[0]);
+        return;
+      }
+      if (positioned.length === 0) {
+        setFlightNote(null);
+        setFlightErr(`${result.resolvedQuery} was found, but it has no live position yet.`);
+        return;
+      }
+      setFlightCandidates(positioned);
+      setFlightNote(`${positioned.length} live global matches — choose the aircraft to follow.`);
+    } catch (error) {
+      setFlightNote(null);
+      setFlightErr(error instanceof Error ? error.message : "Global flight search failed.");
+    } finally {
+      setFlightBusy(false);
+    }
   };
 
   const liveFlightOptions = state.aircraft
@@ -303,6 +354,8 @@ export function Control() {
                     onChange={(event) => {
                       setFlightQuery(event.target.value);
                       setFlightErr(null);
+                      setFlightNote(null);
+                      setFlightCandidates([]);
                     }}
                     onKeyDown={(event) => {
                       if (event.key === "Enter") {
@@ -321,16 +374,40 @@ export function Control() {
                       </option>
                     ))}
                   </datalist>
-                  <button type="button" className="loc-btn" onClick={followFlight}>
-                    Follow
+                  <button
+                    type="button"
+                    className="loc-btn"
+                    disabled={flightBusy || !flightQuery.trim()}
+                    onClick={() => void followFlight()}
+                  >
+                    {flightBusy ? "Searching…" : "Follow"}
                   </button>
                 </div>
                 <div className={`flight-picker-status ${flightErr ? "error" : ""}`}>
-                  {flightErr ??
+                  {flightErr ?? flightNote ??
                     (cfg.followedFlight
                       ? `Following ${cfg.followedFlight.label} on the projector`
-                      : `${liveFlightOptions.length} positioned aircraft available`)}
+                      : `${liveFlightOptions.length} nearby aircraft · global search available`)}
                 </div>
+                {flightCandidates.length > 0 && (
+                  <div className="flight-candidates">
+                    {flightCandidates.map((ac) => (
+                      <button
+                        key={ac.hex}
+                        type="button"
+                        className="flight-candidate"
+                        onClick={() => selectFlight(ac)}
+                      >
+                        <strong>{ac.flight?.trim() || ac.registration || ac.hex.toUpperCase()}</strong>
+                        <span>
+                          {[ac.registration, ac.typeCode, ac.hex.toUpperCase()]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
               <Row label="Map zoom" hint="lower shows more of the route">
                 <Slider

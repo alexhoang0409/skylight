@@ -57,23 +57,63 @@ function parseCsvLine(line: string): string[] {
   return out;
 }
 
-let cache: Map<string, string> | null = null;
+export interface AirlineIndex {
+  nameByIcao: Map<string, string>;
+  icaoByIata: Map<string, string>;
+}
 
 /** airlines.dat has no header row; columns are fixed by position:
  *  0 id, 1 name, 2 alias, 3 IATA, 4 ICAO, 5 callsign, 6 country, 7 active */
-async function buildIndex(dataDir: string): Promise<Map<string, string>> {
-  const text = await cachedDat(dataDir);
-  const byIcao = new Map<string, string>();
+export function buildAirlineIndex(text: string): AirlineIndex {
+  const nameByIcao = new Map<string, string>();
+  const icaoByIata = new Map<string, string>();
+  const activeIata = new Set<string>();
   for (const line of text.split(/\r?\n/)) {
     if (!line.trim()) continue;
     const f = parseCsvLine(line);
     const name = f[1];
+    const iata = f[3];
     const icao = f[4];
     if (icao && icao !== "\\N" && name && name !== "\\N") {
-      byIcao.set(icao.toUpperCase(), name);
+      nameByIcao.set(icao.toUpperCase(), name);
+    }
+    if (iata && iata !== "\\N" && icao && icao !== "\\N") {
+      const iataKey = iata.toUpperCase();
+      const active = f[7]?.toUpperCase() === "Y";
+      // OpenFlights contains retired duplicates. Prefer an active carrier,
+      // otherwise keep the first stable mapping rather than the last row.
+      if (!icaoByIata.has(iataKey) || (active && !activeIata.has(iataKey))) {
+        icaoByIata.set(iataKey, icao.toUpperCase());
+        if (active) activeIata.add(iataKey);
+      }
     }
   }
-  return byIcao;
+  return { nameByIcao, icaoByIata };
+}
+
+let cache: AirlineIndex | null = null;
+
+async function getIndex(dataDir: string): Promise<AirlineIndex> {
+  if (!cache) cache = buildAirlineIndex(await cachedDat(dataDir));
+  return cache;
+}
+
+/** Convert a marketed IATA flight number (AC1664) to the ICAO callsign
+ * broadcast over ADS-B (ACA1664). Already-ICAO and unknown values pass
+ * through unchanged. */
+export function expandIataCallsign(input: string, index: AirlineIndex): string {
+  const normalized = input.trim().toUpperCase().replace(/\s+/g, "");
+  const match = normalized.match(/^([A-Z0-9]{2})(\d+[A-Z]?)$/);
+  if (!match) return normalized;
+  const icao = index.icaoByIata.get(match[1]);
+  return icao ? `${icao}${match[2]}` : normalized;
+}
+
+export async function resolveIataCallsign(
+  input: string,
+  dataDir: string,
+): Promise<string> {
+  return expandIataCallsign(input, await getIndex(dataDir));
 }
 
 /** Resolve a callsign's operating airline from its ICAO prefix (e.g. the
@@ -85,6 +125,5 @@ export async function lookupAirlineByCallsign(
 ): Promise<string | null> {
   const prefix = callsign.trim().toUpperCase().match(/^[A-Z]{3}/)?.[0];
   if (!prefix) return null;
-  if (!cache) cache = await buildIndex(dataDir);
-  return cache.get(prefix) ?? null;
+  return (await getIndex(dataDir)).nameByIcao.get(prefix) ?? null;
 }

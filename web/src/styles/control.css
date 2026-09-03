@@ -318,6 +318,38 @@ main {
 .flight-picker-status.error {
   color: var(--bad);
 }
+.flight-candidates {
+  display: grid;
+  gap: 7px;
+  margin-top: 11px;
+}
+.flight-candidate {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+.flight-candidate:hover,
+.flight-candidate:focus-visible {
+  border-color: var(--accent);
+  outline: none;
+}
+.flight-candidate strong {
+  font: 600 13px var(--mono);
+}
+.flight-candidate span {
+  color: var(--muted);
+  font: 10px var(--mono);
+  text-align: right;
+}
 
 /* Segmented */
 .segmented {

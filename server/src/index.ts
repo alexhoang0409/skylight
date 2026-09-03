@@ -19,7 +19,8 @@ import { resolveLocation } from "./geocode.js";
 import { buildHostMatcher, originHostname } from "./allowed-hosts.js";
 import { AirportGroundPoller } from "./airport-ground.js";
 import { lookupAirport, lookupCity } from "./airports.js";
-import { lookupAirlineByCallsign } from "./airlines.js";
+import { lookupAirlineByCallsign, resolveIataCallsign } from "./airlines.js";
+import { FlightSearchError, searchLiveAircraft } from "./flight-search.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = resolve(__dirname, "../data");
@@ -33,6 +34,11 @@ const RADIO_URL =
 const API_URL =
   process.env.API_URL ??
   "https://opendata.adsb.fi/api/v3/lat/{lat}/lon/{lon}/dist/{r}";
+const FLIGHT_LOOKUP_URL =
+  process.env.FLIGHT_LOOKUP_URL ?? "https://opendata.adsb.fi/api/v2";
+const API_USER_AGENT =
+  process.env.API_USER_AGENT ??
+  "skylight/0.1 (https://github.com/alexhoang0409/skylight)";
 const GROUND_API_URL =
   process.env.GROUND_API_URL ??
   "https://api.adsb.lol/v2/lat/{lat}/lon/{lon}/dist/{r}";
@@ -197,6 +203,25 @@ async function main(): Promise<void> {
       res.json({ name: await lookupAirlineByCallsign(callsign, DATA_DIR) });
     } catch {
       res.json({ name: null });
+    }
+  });
+  // Acquire a live aircraft anywhere in the provider's coverage by flight
+  // number/callsign, registration, or ICAO hex. The selected result is then
+  // followed by the normal area poller; this endpoint performs no bulk scan.
+  app.get("/api/flight-search", async (req, res) => {
+    const query = String(req.query.q ?? "");
+    try {
+      res.json(await searchLiveAircraft(query, {
+        baseUrl: FLIGHT_LOOKUP_URL,
+        userAgent: API_USER_AGENT,
+        requestGate,
+        resolveCallsign: (value) => resolveIataCallsign(value, DATA_DIR),
+      }));
+    } catch (error) {
+      if (error instanceof FlightSearchError) {
+        return res.status(error.status).json({ error: error.message });
+      }
+      res.status(502).json({ error: "Global flight search failed." });
     }
   });
   app.post("/api/source", (req, res) => {

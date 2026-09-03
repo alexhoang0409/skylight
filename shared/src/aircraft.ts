@@ -59,6 +59,17 @@ export interface AircraftSnapshot {
   aircraft: Aircraft[];
 }
 
+export type FlightSearchKind = "callsign" | "registration" | "hex";
+
+/** Result from the server's global live-aircraft acquisition endpoint. */
+export interface FlightSearchResponse {
+  query: string;
+  /** Callsign after optional IATA → ICAO conversion (AC1664 → ACA1664). */
+  resolvedQuery: string;
+  matchedBy: FlightSearchKind;
+  aircraft: Aircraft[];
+}
+
 /**
  * Resolve an identity entered in the projector control UI against aircraft
  * that are live right now. Callsigns ignore spaces ("AC 1664" matches
