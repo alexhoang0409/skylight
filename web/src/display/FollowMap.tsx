@@ -131,7 +131,9 @@ function planePath(size: number): string {
 }
 
 function flightName(ac: Aircraft, fallback: string): string {
-  return ac.flight?.trim() || ac.registration || fallback;
+  const callsign = ac.flight?.trim();
+  return (callsign && !/^0+$/.test(callsign) ? callsign : undefined) ||
+    ac.registration || ac.hex.toUpperCase() || fallback;
 }
 
 export function FollowMap({

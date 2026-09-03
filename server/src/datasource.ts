@@ -31,9 +31,12 @@ export interface RawAircraft {
 export function normalizeAircraft(raw: RawAircraft, ts: number): Aircraft | null {
   if (!raw.hex) return null;
   const onGround = raw.alt_baro === "ground";
+  const callsign = raw.flight?.trim();
   return {
     hex: raw.hex,
-    flight: raw.flight?.trim() || undefined,
+    // Some feeds use "0"/"00000000" as a missing-callsign sentinel. It is
+    // not a flight identity, so let the UI fall back to registration or hex.
+    flight: callsign && !/^0+$/.test(callsign) ? callsign : undefined,
     lat: raw.lat,
     lon: raw.lon,
     altBaro: onGround ? null : (raw.alt_baro as number | undefined) ?? null,

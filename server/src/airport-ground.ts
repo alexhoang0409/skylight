@@ -84,15 +84,17 @@ export class AirportGroundPoller {
       const body = (await res.json()) as { ac?: AlAircraft[] };
       const aircraft: GroundAircraft[] = [];
       for (const a of body.ac ?? []) {
+        const callsign = a.flight?.trim();
+        const flight = callsign && !/^0+$/.test(callsign) ? callsign : undefined;
         if (a.alt_baro !== "ground") continue;
         if (a.lat == null || a.lon == null || !a.hex) continue;
         // Surface VEHICLES are ADS-B category C; TIS-B tracks with no
         // identity at all are almost always vehicles too. Keep aircraft.
         if (a.category?.startsWith("C")) continue;
-        if (!a.t && !a.flight && !a.r) continue;
+        if (!a.t && !flight && !a.r) continue;
         aircraft.push({
           hex: a.hex,
-          flight: a.flight?.trim() || undefined,
+          flight,
           reg: a.r,
           typeCode: a.t,
           lat: a.lat,

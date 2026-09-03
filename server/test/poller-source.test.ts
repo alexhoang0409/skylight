@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_CONFIG, type Config } from "@shared/index.js";
-import { Poller, type PollerOptions } from "../src/datasource.js";
+import { normalizeAircraft, Poller, type PollerOptions } from "../src/datasource.js";
 import type { RouteEnricher } from "../src/enrich/routes.js";
 import { RequestGate } from "../src/request-gate.js";
 
@@ -9,6 +9,15 @@ import { RequestGate } from "../src/request-gate.js";
 // rate limit and makes aircraft flicker out and back.
 
 const stubEnricher = { enrichSync: () => ({}) } as unknown as RouteEnricher;
+
+describe("aircraft normalization", () => {
+  it("treats zero-only callsigns as missing identities", () => {
+    expect(normalizeAircraft({ hex: "a00000", flight: " 0 " }, 1)?.flight)
+      .toBeUndefined();
+    expect(normalizeAircraft({ hex: "c01001", flight: " ACA1664 " }, 1)?.flight)
+      .toBe("ACA1664");
+  });
+});
 
 function makeOpts(over: Partial<PollerOptions>): PollerOptions {
   return {
