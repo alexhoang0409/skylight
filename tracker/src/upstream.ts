@@ -26,6 +26,7 @@ export interface Upstream {
   getConfig(): Config;
   getAircraft(): Aircraft[];
   find(hex: string): Aircraft | undefined;
+  setTrackedTarget(hex: string | null): void;
   /** Patch the shared config on the server (persisted there). */
   patchConfig(patch: Partial<Config>): void;
 }
@@ -75,6 +76,11 @@ export class WsUpstream implements Upstream {
     // Optimistic local merge so the tracker reacts immediately.
     this.config = mergeConfig(this.config, patch);
     this.events.onConfig?.(this.config);
+  }
+
+  setTrackedTarget(hex: string | null): void {
+    const msg: ClientMessage = { type: "setTrackedTarget", hex };
+    if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(msg));
   }
 
   private open(): void {
@@ -197,4 +203,6 @@ export class ReplayUpstream implements Upstream {
     this.config = mergeConfig(this.config, patch);
     this.events.onConfig?.(this.config);
   }
+
+  setTrackedTarget(_hex: string | null): void {}
 }

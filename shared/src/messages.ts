@@ -33,6 +33,7 @@ export interface GroundAircraft {
 export type ServerMessage =
   | { type: "config"; config: Config }
   | { type: "aircraft"; now: number; aircraft: Aircraft[] }
+  | { type: "trackedTarget"; hex: string | null }
   | { type: "status"; status: SourceStatus }
   | { type: "airportGround"; at: number; aircraft: GroundAircraft[] };
 
@@ -41,4 +42,5 @@ export type ClientMessage =
   | { type: "hello"; role: "display" | "control" }
   | { type: "patchConfig"; patch: Partial<Config> }
   | { type: "setConfig"; config: Config }
-  | { type: "resetConfig" };
+  | { type: "resetConfig" }
+  | { type: "setTrackedTarget"; hex: string | null };

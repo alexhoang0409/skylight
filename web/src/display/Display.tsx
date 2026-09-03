@@ -34,6 +34,10 @@ export function Display() {
   const configRef = useRef<Config>(state.config ?? DEFAULT_CONFIG);
   configRef.current = state.config ?? DEFAULT_CONFIG;
 
+  useEffect(() => {
+    rendererRef.current?.setSelected(state.trackedTarget);
+  }, [state.trackedTarget]);
+
   // Latest ambient toggle in a ref so the keydown listener stays subscribed once.
   const ambientToggleRef = useRef(ambient.toggle);
   ambientToggleRef.current = ambient.toggle;

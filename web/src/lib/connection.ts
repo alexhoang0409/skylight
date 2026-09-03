@@ -15,6 +15,7 @@ export interface StreamState {
   config: Config | null;
   now: number;
   aircraft: Aircraft[];
+  trackedTarget: string | null;
   status: SourceStatus | null;
   /** Airport surface traffic snapshot (TV / stream "who's next" panel). */
   airportGround: { at: number; aircraft: GroundAircraft[] } | null;
@@ -33,6 +34,7 @@ export class Connection {
     config: null,
     now: 0,
     aircraft: [],
+    trackedTarget: null,
     status: null,
     airportGround: null,
   };
@@ -89,6 +91,9 @@ export class Connection {
         break;
       case "aircraft":
         this.update({ now: msg.now, aircraft: msg.aircraft });
+        break;
+      case "trackedTarget":
+        this.update({ trackedTarget: msg.hex });
         break;
       case "status":
         this.update({ status: msg.status });

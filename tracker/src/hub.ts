@@ -159,6 +159,9 @@ export class TrackerHub {
       case "manualTarget":
         this.loop.manualTarget(msg.hex);
         break;
+      case "manualTargetByIdentity":
+        this.loop.manualTargetByIdentity(msg.identity);
+        break;
       case "gotoAzEl":
         this.loop.gotoAzEl(msg.azDeg, msg.elDeg);
         break;

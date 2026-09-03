@@ -247,6 +247,19 @@ body {
 .target-table .note { color: var(--text-dim); }
 .target-table .empty { color: var(--text-dim); text-align: center; padding: 16px; }
 
+.identity-target {
+  display: flex;
+  gap: 8px;
+  align-items: end;
+  padding: 10px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.identity-target label { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+.identity-target label span { color: var(--text-dim); font-size: 11px; }
+.identity-target input { min-width: 0; }
+
 /* --- bottom row: jog + calib/config --- */
 .bottom-row { display: flex; gap: 12px; align-items: stretch; flex-wrap: wrap; }
 

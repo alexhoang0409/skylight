@@ -19,6 +19,7 @@ export interface HubDeps {
   getStatus: () => SourceStatus;
   /** Latest airport surface snapshot (null until the first successful poll). */
   getAirportGround?: () => { at: number; aircraft: GroundAircraft[] } | null;
+  getTrackedTarget?: () => string | null;
   /** Browser Origin check — defends against cross-site WebSocket hijack.
    *  Receives the raw Origin header value (undefined for non-browser clients). */
   isOriginAllowed?: (origin: string | undefined) => boolean;
@@ -27,6 +28,7 @@ export interface HubDeps {
 export class Hub {
   private wss: WebSocketServer;
   private clients = new Set<WebSocket>();
+  private trackedTarget: string | null = null;
 
   constructor(server: Server, private deps: HubDeps) {
     const allowOrigin = deps.isOriginAllowed ?? (() => true);
@@ -56,6 +58,7 @@ export class Hub {
     const snap = this.deps.getSnapshot();
     this.send(ws, { type: "aircraft", now: snap.now, aircraft: snap.aircraft });
     this.send(ws, { type: "status", status: this.deps.getStatus() });
+    this.send(ws, { type: "trackedTarget", hex: this.deps.getTrackedTarget?.() ?? null });
     const ground = this.deps.getAirportGround?.();
     if (ground) {
       this.send(ws, { type: "airportGround", at: ground.at, aircraft: ground.aircraft });
@@ -82,6 +85,10 @@ export class Hub {
         break;
       case "resetConfig":
         this.deps.store.reset();
+        break;
+      case "setTrackedTarget":
+        this.trackedTarget = msg.hex;
+        this.broadcast({ type: "trackedTarget", hex: this.trackedTarget });
         break;
       case "hello":
         break;

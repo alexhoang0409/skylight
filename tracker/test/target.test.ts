@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 import type { Aircraft, GeoPoint, TargetCriteria } from "@shared/index.js";
 import { FT_TO_M } from "@shared/index.js";
-import { selectTarget } from "../src/pointing/target.js";
+import { resolveTargetIdentity, selectTarget } from "../src/pointing/target.js";
 
 const SITE: GeoPoint = { lat: 37.6213, lon: -122.379, altM: 0 };
 const CRIT: TargetCriteria = {
@@ -103,5 +103,26 @@ describe("selectTarget", () => {
     const lander = planeAt("lander", 25, now, { altBaro: 3000, baroRate: -900 });
     const sel = selectTarget([cruiser, lander], SITE, now, null, "approach", CRIT);
     expect(sel.hex).toBe("lander");
+  });
+});
+
+describe("resolveTargetIdentity", () => {
+  const aircraft = [
+    planeAt("abc123", 45, 1_000_000, { flight: "AC1664", registration: "C-FABC" }),
+    planeAt("def456", 45, 1_000_000, { flight: "WJA123", registration: "C-FDEF" }),
+  ];
+
+  it("resolves callsigns and tail numbers case-insensitively", () => {
+    expect(resolveTargetIdentity(aircraft, " ac1664 ")).toBe("abc123");
+    expect(resolveTargetIdentity(aircraft, "c-fdef")).toBe("def456");
+  });
+
+  it("accepts an exact hex and rejects unknown or ambiguous identities", () => {
+    expect(resolveTargetIdentity(aircraft, "ABC123")).toBe("abc123");
+    expect(resolveTargetIdentity(aircraft, "unknown")).toBeNull();
+    expect(resolveTargetIdentity([
+      ...aircraft,
+      planeAt("ghi789", 45, 1_000_000, { flight: "AC1664" }),
+    ], "AC1664")).toBeNull();
   });
 });

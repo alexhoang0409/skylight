@@ -25,6 +25,8 @@ export type TrackerClientMessage =
   | { type: "stopJog" }
   /** Force a target by hex (manual mode), or null to release. */
   | { type: "manualTarget"; hex: string | null }
+  /** Track a live aircraft by callsign, flight number, tail number, or hex. */
+  | { type: "manualTargetByIdentity"; identity: string | null }
   /** Point at a world direction (calibration verify). */
   | { type: "gotoAzEl"; azDeg: number; elDeg: number }
   /** Raw mechanical move (units-per-degree measurement). */

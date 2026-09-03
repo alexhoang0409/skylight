@@ -33,7 +33,11 @@ import { AutoCalibrator } from "./calibration/auto.js";
 import { CalibrationSession } from "./calibration/session.js";
 import { planPass, zenithHold, ZENITH_MIN_HFOV } from "./pointing/planner.js";
 import { predictAim, TrackHistory, type Prediction } from "./pointing/predict.js";
-import { selectTarget, type CurrentTarget } from "./pointing/target.js";
+import {
+  resolveTargetIdentity,
+  selectTarget,
+  type CurrentTarget,
+} from "./pointing/target.js";
 import { chooseZoom } from "./pointing/zoom.js";
 import { decodeLuma, VISION_W, VISION_H, type Detection } from "./vision/detect.js";
 import {
@@ -53,6 +57,7 @@ const AUTOCAL_FILE = resolve(TRACKER_DIR, "../data/autocal.json");
 export class ControlLoop {
   private mode: TrackerMode = "auto";
   private manualHex: string | null = null;
+  private manualIdentity: string | null = null;
   private current: CurrentTarget | null = null;
   private history = new TrackHistory();
   private azTracker = new AxisTracker(true);
@@ -225,6 +230,8 @@ export class ControlLoop {
     if (mode === this.mode) return;
     this.mode = mode;
     this.manualHex = null;
+    this.manualIdentity = null;
+    this.upstream.setTrackedTarget(null);
     this.resetSetpoint();
     this.driver().stopMotion();
     this.recorder.write("mode", { mode });
@@ -241,10 +248,26 @@ export class ControlLoop {
   }
 
   manualTarget(hex: string | null): void {
+    this.manualIdentity = null;
     this.manualHex = hex;
+    this.upstream.setTrackedTarget(hex);
     this.current = hex ? { hex, sinceMs: Date.now() } : null;
     this.resetSetpoint();
     this.recorder.write("manualTarget", { hex });
+  }
+
+  manualTargetByIdentity(identity: string | null): void {
+    this.manualIdentity = identity?.trim() || null;
+    this.manualHex = this.manualIdentity
+      ? resolveTargetIdentity(this.upstream.getAircraft(), this.manualIdentity)
+      : null;
+    this.upstream.setTrackedTarget(this.manualHex);
+    this.current = this.manualHex ? { hex: this.manualHex, sinceMs: Date.now() } : null;
+    this.resetSetpoint();
+    this.recorder.write("manualTargetByIdentity", {
+      identity: this.manualIdentity,
+      hex: this.manualHex,
+    });
   }
 
   jog(pan: number, tilt: number, zoom: number): void {
@@ -356,6 +379,18 @@ export class ControlLoop {
     let angular: number | null = null;
 
     // Target selection runs in auto mode, or pinned in manual-target mode.
+    if (this.manualIdentity) {
+      const resolved = resolveTargetIdentity(
+        this.upstream.getAircraft(),
+        this.manualIdentity,
+      );
+      if (resolved !== this.manualHex) {
+        this.manualHex = resolved;
+        this.upstream.setTrackedTarget(resolved);
+        if (resolved) this.current = { hex: resolved, sinceMs: now };
+      }
+    }
+
     const tracking =
       this.mode === "auto" || (this.mode === "manual" && this.manualHex != null);
 

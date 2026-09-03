@@ -1,6 +1,7 @@
 // Camera tracker debug dashboard: video + overlays on the left, sky plot and
 // target list on the right, jog / calibration / config along the bottom.
 
+import { useState } from "react";
 import { useTracker } from "./useTracker.js";
 import { CalibrationWizard } from "./components/CalibrationWizard.js";
 import { ConfigPanel } from "./components/ConfigPanel.js";
@@ -10,6 +11,32 @@ import { SkyPolar } from "./components/SkyPolar.js";
 import { StatusBar } from "./components/StatusBar.js";
 import { TargetTable } from "./components/TargetTable.js";
 import { VideoPane } from "./components/VideoPane.js";
+
+function IdentityTarget({ onTrack }: { onTrack: (identity: string | null) => void }) {
+  const [identity, setIdentity] = useState("");
+
+  return (
+    <form
+      className="identity-target"
+      onSubmit={(event) => {
+        event.preventDefault();
+        onTrack(identity.trim() || null);
+      }}
+    >
+      <label>
+        <span>Track flight or tail</span>
+        <input
+          value={identity}
+          onChange={(event) => setIdentity(event.target.value)}
+          placeholder="AC1664"
+          aria-label="Track by callsign, flight number, or tail number"
+        />
+      </label>
+      <button type="submit">Track</button>
+      <button type="button" onClick={() => { setIdentity(""); onTrack(null); }}>Release</button>
+    </form>
+  );
+}
 
 export function Tracker() {
   const { stream, conn } = useTracker();
@@ -46,6 +73,9 @@ export function Tracker() {
 
         <aside className="right">
           <SkyPolar state={state} config={config} onPick={(hex) => pick(hex)} />
+          <IdentityTarget
+            onTrack={(value) => conn.send({ type: "manualTargetByIdentity", identity: value })}
+          />
           <TargetTable state={state} onPick={pick} />
         </aside>
       </main>
