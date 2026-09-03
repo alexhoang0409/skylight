@@ -346,11 +346,6 @@ main {
 .flight-suggestion strong {
   font: 600 12px var(--mono);
 }
-.flight-suggestion span {
-  color: var(--muted);
-  font: 10px var(--mono);
-  text-align: right;
-}
 .flight-picker-status {
   margin-top: 7px;
   color: var(--muted);
@@ -386,10 +381,38 @@ main {
 .flight-candidate strong {
   font: 600 13px var(--mono);
 }
-.flight-candidate span {
+.flight-result-info {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+  min-width: 0;
+}
+.flight-result-detail {
+  min-width: 0;
+  overflow: hidden;
   color: var(--muted);
   font: 10px var(--mono);
+  white-space: nowrap;
+  text-overflow: ellipsis;
   text-align: right;
+}
+.flight-air-state {
+  flex: 0 0 auto;
+  padding: 2px 5px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font: 700 8px/1.2 var(--mono);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.flight-air-state.air {
+  color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 10%, transparent);
+}
+.flight-air-state.ground {
+  color: #e5b567;
+  background: color-mix(in srgb, #e5b567 10%, transparent);
 }
 
 /* Segmented */

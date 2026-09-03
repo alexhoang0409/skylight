@@ -152,6 +152,7 @@ export function Control() {
         setFlightErr(`${result.resolvedQuery} was found, but it has no live position yet.`);
         return;
       }
+      positioned.sort((a, b) => Number(a.onGround) - Number(b.onGround));
       setFlightCandidates(positioned);
       setFlightNote(`${positioned.length} live global matches — choose the aircraft to follow.`);
     } catch (error) {
@@ -165,6 +166,7 @@ export function Control() {
   const liveFlightOptions = state.aircraft
     .filter((ac) => ac.lat != null && ac.lon != null)
     .sort((a, b) =>
+      Number(a.onGround) - Number(b.onGround) ||
       (a.flight ?? a.registration ?? a.hex).localeCompare(
         b.flight ?? b.registration ?? b.hex,
       ),
@@ -418,10 +420,15 @@ export function Control() {
                             <strong>
                               {ac.flight?.trim() || ac.registration || ac.hex.toUpperCase()}
                             </strong>
-                            <span>
-                              {[ac.registration, ac.typeName ?? ac.typeCode, ac.hex.toUpperCase()]
-                                .filter(Boolean)
-                                .join(" · ")}
+                            <span className="flight-result-info">
+                              <span className={`flight-air-state ${ac.onGround ? "ground" : "air"}`}>
+                                {ac.onGround ? "ON GROUND" : "IN AIR"}
+                              </span>
+                              <span className="flight-result-detail">
+                                {[ac.registration, ac.typeName ?? ac.typeCode, ac.hex.toUpperCase()]
+                                  .filter(Boolean)
+                                  .join(" · ")}
+                              </span>
                             </span>
                           </button>
                         ))}
@@ -453,10 +460,15 @@ export function Control() {
                         onClick={() => selectFlight(ac)}
                       >
                         <strong>{ac.flight?.trim() || ac.registration || ac.hex.toUpperCase()}</strong>
-                        <span>
-                          {[ac.registration, ac.typeCode, ac.hex.toUpperCase()]
-                            .filter(Boolean)
-                            .join(" · ")}
+                        <span className="flight-result-info">
+                          <span className={`flight-air-state ${ac.onGround ? "ground" : "air"}`}>
+                            {ac.onGround ? "ON GROUND" : "IN AIR"}
+                          </span>
+                          <span className="flight-result-detail">
+                            {[ac.registration, ac.typeCode, ac.hex.toUpperCase()]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </span>
                         </span>
                       </button>
                     ))}
