@@ -302,13 +302,54 @@ main {
 }
 .flight-picker-bar {
   display: flex;
+  align-items: flex-start;
   gap: 8px;
 }
-.flight-picker-bar .text-input {
+.flight-picker-input-wrap {
   flex: 1;
   min-width: 0;
-  width: auto;
+}
+.flight-picker-input-wrap .text-input {
+  width: 100%;
   text-transform: uppercase;
+}
+.flight-suggestions {
+  max-height: 240px;
+  margin-top: 6px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+}
+.flight-suggestion {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+.flight-suggestion:first-child {
+  border-top: 0;
+}
+.flight-suggestion:hover,
+.flight-suggestion:focus-visible {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  outline: none;
+}
+.flight-suggestion strong {
+  font: 600 12px var(--mono);
+}
+.flight-suggestion span {
+  color: var(--muted);
+  font: 10px var(--mono);
+  text-align: right;
 }
 .flight-picker-status {
   margin-top: 7px;

@@ -57,13 +57,15 @@ export function Control() {
   const [apBusy, setApBusy] = useState(false);
   const [apErr, setApErr] = useState<string | null>(null);
 
-  // Flight-follow projector mode. Selection is resolved only against the
-  // current live feed so an ambiguous flight number can never pick at random.
+  // Flight-follow projector mode. Nearby matches are offered immediately;
+  // unmatched identities fall back to the global live-aircraft endpoint.
   const [flightQuery, setFlightQuery] = useState("");
   const [flightErr, setFlightErr] = useState<string | null>(null);
   const [flightNote, setFlightNote] = useState<string | null>(null);
   const [flightBusy, setFlightBusy] = useState(false);
   const [flightCandidates, setFlightCandidates] = useState<Aircraft[]>([]);
+  const [flightSuggestionsOpen, setFlightSuggestionsOpen] = useState(false);
+  const [flightSuggestionSnapshot, setFlightSuggestionSnapshot] = useState<Aircraft[]>([]);
   useEffect(() => {
     if (cfg?.followedFlight) setFlightQuery(cfg.followedFlight.label);
   }, [cfg?.followedFlight?.hex, cfg?.followedFlight?.label]);
@@ -109,6 +111,7 @@ export function Control() {
     setFlightErr(null);
     setFlightNote(null);
     setFlightCandidates([]);
+    setFlightSuggestionsOpen(false);
     set({
       displayMode: "follow",
       followedFlight: { hex: match.hex, label, lat: match.lat, lon: match.lon },
@@ -166,6 +169,14 @@ export function Control() {
         b.flight ?? b.registration ?? b.hex,
       ),
     );
+  const normalizedFlightQuery = flightQuery.trim().toUpperCase().replace(/\s+/g, "");
+  const visibleFlightSuggestions = flightSuggestionSnapshot.filter((ac) => {
+    if (!normalizedFlightQuery) return true;
+    return [ac.flight, ac.registration, ac.hex, ac.typeCode, ac.typeName]
+      .filter(Boolean)
+      .some((value) => String(value).toUpperCase().replace(/\s+/g, "")
+        .includes(normalizedFlightQuery));
+  });
 
   const changeLocation = async (q: string) => {
     if (!q.trim()) return;
@@ -343,37 +354,80 @@ export function Control() {
               <div className="flight-picker">
                 <label htmlFor="follow-flight">Flight, tail, or ICAO hex</label>
                 <div className="flight-picker-bar">
-                  <input
-                    id="follow-flight"
-                    className="text-input"
-                    value={flightQuery}
-                    list="live-flight-options"
-                    placeholder="AC1664"
-                    autoComplete="off"
-                    spellCheck={false}
-                    onChange={(event) => {
-                      setFlightQuery(event.target.value);
-                      setFlightErr(null);
-                      setFlightNote(null);
-                      setFlightCandidates([]);
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        event.preventDefault();
-                        followFlight();
+                  <div
+                    className="flight-picker-input-wrap"
+                    onBlur={(event) => {
+                      if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                        window.setTimeout(() => setFlightSuggestionsOpen(false), 0);
                       }
                     }}
-                  />
-                  <datalist id="live-flight-options">
-                    {liveFlightOptions.map((ac) => (
-                      <option
-                        key={ac.hex}
-                        value={ac.flight ?? ac.registration ?? ac.hex.toUpperCase()}
+                  >
+                    <input
+                      id="follow-flight"
+                      className="text-input"
+                      value={flightQuery}
+                      placeholder="AC1664"
+                      autoComplete="off"
+                      spellCheck={false}
+                      role="combobox"
+                      aria-autocomplete="list"
+                      aria-expanded={flightSuggestionsOpen}
+                      aria-controls="live-flight-options"
+                      onFocus={() => {
+                        setFlightSuggestionSnapshot(liveFlightOptions);
+                        setFlightSuggestionsOpen(true);
+                      }}
+                      onClick={() => {
+                        if (!flightSuggestionsOpen) {
+                          setFlightSuggestionSnapshot(liveFlightOptions);
+                          setFlightSuggestionsOpen(true);
+                        }
+                      }}
+                      onChange={(event) => {
+                        setFlightQuery(event.target.value);
+                        setFlightErr(null);
+                        setFlightNote(null);
+                        setFlightCandidates([]);
+                        setFlightSuggestionsOpen(true);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          void followFlight();
+                        } else if (event.key === "Escape") {
+                          setFlightSuggestionsOpen(false);
+                        }
+                      }}
+                    />
+                    {flightSuggestionsOpen && visibleFlightSuggestions.length > 0 && (
+                      <div
+                        id="live-flight-options"
+                        className="flight-suggestions"
+                        role="listbox"
+                        aria-label="Nearby live aircraft"
                       >
-                        {[ac.registration, ac.typeName].filter(Boolean).join(" · ")}
-                      </option>
-                    ))}
-                  </datalist>
+                        {visibleFlightSuggestions.map((ac) => (
+                          <button
+                            key={ac.hex}
+                            type="button"
+                            className="flight-suggestion"
+                            role="option"
+                            aria-selected="false"
+                            onClick={() => selectFlight(ac)}
+                          >
+                            <strong>
+                              {ac.flight?.trim() || ac.registration || ac.hex.toUpperCase()}
+                            </strong>
+                            <span>
+                              {[ac.registration, ac.typeName ?? ac.typeCode, ac.hex.toUpperCase()]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                   <button
                     type="button"
                     className="loc-btn"
