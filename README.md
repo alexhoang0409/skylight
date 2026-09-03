@@ -145,7 +145,9 @@ same control back to **Local** to restore the original fixed-location sky/radar
 view. Skylight checks the nearby feed first, then performs one rate-limited global
 live-aircraft lookup when needed. The follow view uses OpenStreetMap tiles, so
 global lookup and its basemap need internet access even when nearby aircraft data
-comes from a local radio.
+comes from a local radio. Its map center and aircraft markers interpolate between
+live fixes; the control panel's **Motion** settings adjust that smoothing,
+extrapolation limit, and frame-rate cap.
 
 ### With a radio (locally)
 

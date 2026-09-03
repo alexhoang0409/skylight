@@ -129,7 +129,12 @@ body,
   display: block;
   user-select: none;
   filter: invert(1) hue-rotate(180deg) brightness(0.55) saturate(0.5) contrast(1.15);
-  transition: left 1.8s linear, top 1.8s linear;
+}
+.follow-map-tile-plane {
+  position: absolute;
+  left: 0;
+  top: 0;
+  will-change: transform;
 }
 .follow-map-shade {
   pointer-events: none;
@@ -161,9 +166,6 @@ body,
   fill: rgba(220, 232, 240, 0.72);
   font: 10px "JetBrains Mono", ui-monospace, monospace;
   letter-spacing: 0.04em;
-}
-.follow-aircraft {
-  transition: transform 0.7s ease-out;
 }
 .follow-aircraft circle {
   fill: rgba(255, 185, 76, 0.09);

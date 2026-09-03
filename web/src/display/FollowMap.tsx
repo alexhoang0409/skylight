@@ -6,6 +6,7 @@ import {
   formatSpeed,
 } from "@shared/index.js";
 import type { AmbientMode } from "../lib/useAmbientMode.js";
+import { FollowMotionModel, type FollowMotionOptions } from "./follow-motion.js";
 
 const TILE_SIZE = 256;
 const MAX_MERCATOR_LAT = 85.05112878;
@@ -27,6 +28,12 @@ interface MapTile {
   url: string;
   left: number;
   top: number;
+}
+
+interface TileGrid {
+  originX: number;
+  originY: number;
+  tiles: MapTile[];
 }
 
 function worldPoint(lat: number, lon: number, zoom: number): Point {
@@ -55,20 +62,22 @@ function screenPoint(
   return { x: width / 2 + dx, y: height / 2 + point.y - center.y };
 }
 
-function mapTiles(
-  center: Point,
+function mapTileGrid(
+  centerTileX: number,
+  centerTileY: number,
   zoom: number,
   width: number,
   height: number,
-): MapTile[] {
+): TileGrid {
   const tileCount = 2 ** zoom;
-  const minX = Math.floor((center.x - width / 2) / TILE_SIZE) - 1;
-  const maxX = Math.floor((center.x + width / 2) / TILE_SIZE) + 1;
-  const minY = Math.max(0, Math.floor((center.y - height / 2) / TILE_SIZE) - 1);
-  const maxY = Math.min(
-    tileCount - 1,
-    Math.floor((center.y + height / 2) / TILE_SIZE) + 1,
-  );
+  const horizontalPadding = Math.ceil(width / (TILE_SIZE * 2)) + 1;
+  const verticalPadding = Math.ceil(height / (TILE_SIZE * 2)) + 1;
+  const minX = centerTileX - horizontalPadding;
+  const maxX = centerTileX + horizontalPadding;
+  const minY = Math.max(0, centerTileY - verticalPadding);
+  const maxY = Math.min(tileCount - 1, centerTileY + verticalPadding);
+  const originX = minX * TILE_SIZE;
+  const originY = minY * TILE_SIZE;
   const tiles: MapTile[] = [];
   for (let y = minY; y <= maxY; y++) {
     for (let x = minX; x <= maxX; x++) {
@@ -76,13 +85,15 @@ function mapTiles(
       tiles.push({
         key: `${zoom}/${x}/${y}`,
         url: `https://tile.openstreetmap.org/${zoom}/${wrappedX}/${y}.png`,
-        left: x * TILE_SIZE - center.x + width / 2,
-        top: y * TILE_SIZE - center.y + height / 2,
+        left: x * TILE_SIZE - originX,
+        top: y * TILE_SIZE - originY,
       });
     }
   }
-  return tiles;
+  return { originX, originY, tiles };
 }
+
+const EMPTY_TILE_GRID: TileGrid = { originX: 0, originY: 0, tiles: [] };
 
 function useViewport(ref: React.RefObject<HTMLDivElement>): { width: number; height: number } {
   const [size, setSize] = useState({
@@ -104,6 +115,57 @@ function useViewport(ref: React.RefObject<HTMLDivElement>): { width: number; hei
   }, [ref]);
 
   return size;
+}
+
+function useSmoothAircraft(aircraft: Aircraft[], now: number, config: Config): Aircraft[] {
+  const modelRef = useRef<FollowMotionModel | null>(null);
+  if (!modelRef.current) modelRef.current = new FollowMotionModel();
+  const [animated, setAnimated] = useState<Aircraft[]>(aircraft);
+  const settingsRef = useRef({
+    motion: {
+      interpolate: config.interpolate,
+      smoothing: config.smoothing,
+      maxExtrapolationSec: config.maxExtrapolationSec,
+      staleSec: config.staleSec,
+    } satisfies FollowMotionOptions,
+    maxFps: config.maxFps,
+  });
+  settingsRef.current = {
+    motion: {
+      interpolate: config.interpolate,
+      smoothing: config.smoothing,
+      maxExtrapolationSec: config.maxExtrapolationSec,
+      staleSec: config.staleSec,
+    },
+    maxFps: config.maxFps,
+  };
+
+  useEffect(() => {
+    modelRef.current!.update(aircraft, performance.now());
+  }, [aircraft, now]);
+
+  useEffect(() => {
+    let animationFrame = 0;
+    let nextFrameDue = 0;
+    const tick = (frameAt: number) => {
+      animationFrame = requestAnimationFrame(tick);
+      const { motion, maxFps } = settingsRef.current;
+      if (maxFps > 0) {
+        const interval = 1000 / maxFps;
+        if (nextFrameDue === 0) nextFrameDue = frameAt;
+        if (frameAt < nextFrameDue) return;
+        nextFrameDue += interval;
+        if (frameAt - nextFrameDue > interval) nextFrameDue = frameAt + interval;
+      } else {
+        nextFrameDue = 0;
+      }
+      setAnimated(modelRef.current!.frame(frameAt, motion));
+    };
+    animationFrame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(animationFrame);
+  }, []);
+
+  return animated;
 }
 
 function planePath(size: number): string {
@@ -157,6 +219,10 @@ export function FollowMap({
   const liveTarget = followed
     ? aircraft.find((ac) => ac.hex === followed.hex && ac.lat != null && ac.lon != null) ?? null
     : null;
+  const smoothAircraft = useSmoothAircraft(aircraft, now, config);
+  const smoothTarget = followed
+    ? smoothAircraft.find((ac) => ac.hex === followed.hex && ac.lat != null && ac.lon != null) ?? null
+    : null;
   const [lastTarget, setLastTarget] = useState<Aircraft | null>(null);
   const [trail, setTrail] = useState<TrailPoint[]>([]);
 
@@ -184,7 +250,7 @@ export function FollowMap({
         lon: followed.lon,
       }
     : null;
-  const target = liveTarget ?? lastTarget ?? savedTarget;
+  const target = smoothTarget ?? lastTarget ?? savedTarget;
   const zoom = Math.max(4, Math.min(14, Math.round(config.followMapZoom)));
   const center = useMemo(
     () =>
@@ -193,12 +259,28 @@ export function FollowMap({
         : null,
     [target?.lat, target?.lon, zoom],
   );
-  const tiles = useMemo(
-    () =>
-      center
-        ? mapTiles(center, zoom, viewport.width, viewport.height)
-        : [],
-    [center, zoom, viewport.width, viewport.height],
+  const hasCenter = center !== null;
+  const centerTileX = center ? Math.floor(center.x / TILE_SIZE) : 0;
+  const centerTileY = center ? Math.floor(center.y / TILE_SIZE) : 0;
+  const tileGrid = useMemo(
+    () => hasCenter
+      ? mapTileGrid(centerTileX, centerTileY, zoom, viewport.width, viewport.height)
+      : EMPTY_TILE_GRID,
+    [hasCenter, centerTileX, centerTileY, zoom, viewport.width, viewport.height],
+  );
+  const tileImages = useMemo(
+    () => tileGrid.tiles.map((tile) => (
+      <img
+        key={tile.key}
+        src={tile.url}
+        alt=""
+        width={TILE_SIZE}
+        height={TILE_SIZE}
+        draggable={false}
+        style={{ left: tile.left, top: tile.top }}
+      />
+    )),
+    [tileGrid],
   );
 
   const projectedTrail = useMemo(
@@ -220,7 +302,7 @@ export function FollowMap({
 
   const nearby = useMemo(() => {
     if (!center || !followed) return [];
-    return aircraft
+    return smoothAircraft
       .filter(
         (ac) =>
           ac.hex !== followed.hex && ac.lat != null && ac.lon != null,
@@ -243,7 +325,7 @@ export function FollowMap({
           point.y >= -40 &&
           point.y <= viewport.height + 40,
       );
-  }, [aircraft, center, followed, zoom, viewport.width, viewport.height]);
+  }, [smoothAircraft, center, followed, zoom, viewport.width, viewport.height]);
 
   const routePoint =
     center && target?.destLat != null && target.destLon != null
@@ -265,17 +347,16 @@ export function FollowMap({
       {center ? (
         <>
           <div className="follow-map-tiles" aria-hidden="true">
-            {tiles.map((tile) => (
-              <img
-                key={tile.key}
-                src={tile.url}
-                alt=""
-                width={TILE_SIZE}
-                height={TILE_SIZE}
-                draggable={false}
-                style={{ left: tile.left, top: tile.top }}
-              />
-            ))}
+            <div
+              className="follow-map-tile-plane"
+              style={{
+                transform: center
+                  ? `translate3d(${viewport.width / 2 + tileGrid.originX - center.x}px, ${viewport.height / 2 + tileGrid.originY - center.y}px, 0)`
+                  : undefined,
+              }}
+            >
+              {tileImages}
+            </div>
           </div>
           <div className="follow-map-shade" />
           <svg className="follow-map-overlay" viewBox={`0 0 ${viewport.width} ${viewport.height}`}>
