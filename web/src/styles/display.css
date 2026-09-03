@@ -103,3 +103,261 @@ body,
   from { opacity: 0; transform: scale(0.94); }
   to { opacity: 1; transform: scale(1); }
 }
+
+/* Geographic map that follows one selected live flight. */
+.follow-map-root {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(48, 70, 88, 0.3), transparent 54%),
+    #080b0f;
+  color: #eef4fa;
+  font-family: Inter, system-ui, sans-serif;
+  cursor: none;
+}
+.follow-map-tiles,
+.follow-map-shade,
+.follow-map-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.follow-map-tiles img {
+  position: absolute;
+  display: block;
+  user-select: none;
+  filter: invert(1) hue-rotate(180deg) brightness(0.55) saturate(0.5) contrast(1.15);
+  transition: left 1.8s linear, top 1.8s linear;
+}
+.follow-map-shade {
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 50%, transparent 8%, rgba(4, 7, 11, 0.08) 50%, rgba(2, 4, 7, 0.48) 100%),
+    linear-gradient(90deg, rgba(3, 6, 10, 0.48) 0%, transparent 36%);
+}
+.follow-map-overlay {
+  overflow: visible;
+  pointer-events: none;
+}
+.follow-trail {
+  fill: none;
+  stroke: rgba(255, 194, 92, 0.88);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 7px rgba(255, 178, 67, 0.8));
+}
+.follow-route-line {
+  stroke: rgba(185, 213, 230, 0.45);
+  stroke-width: 1.5;
+  stroke-dasharray: 8 10;
+}
+.nearby-aircraft path {
+  fill: rgba(205, 224, 235, 0.65);
+}
+.nearby-aircraft text {
+  fill: rgba(220, 232, 240, 0.72);
+  font: 10px "JetBrains Mono", ui-monospace, monospace;
+  letter-spacing: 0.04em;
+}
+.follow-aircraft {
+  transition: transform 0.7s ease-out;
+}
+.follow-aircraft circle {
+  fill: rgba(255, 185, 76, 0.09);
+  stroke: rgba(255, 196, 96, 0.62);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 6;
+  animation: follow-pulse 2.4s ease-out infinite;
+}
+.follow-aircraft path {
+  fill: #fff2d5;
+  stroke: rgba(255, 186, 76, 0.9);
+  stroke-width: 0.75;
+  filter: drop-shadow(0 0 10px rgba(255, 174, 55, 1));
+}
+.follow-aircraft.stale {
+  opacity: 0.48;
+}
+@keyframes follow-pulse {
+  0% { transform: scale(0.72); opacity: 1; }
+  80%, 100% { transform: scale(1.25); opacity: 0; }
+}
+
+.follow-flight-card {
+  position: absolute;
+  z-index: 3;
+  top: clamp(24px, 5vh, 64px);
+  left: clamp(24px, 5vw, 76px);
+  width: min(340px, calc(100vw - 48px));
+  padding: 22px 24px 20px;
+  border: 1px solid rgba(255, 203, 115, 0.2);
+  border-radius: 18px;
+  background: linear-gradient(155deg, rgba(12, 18, 25, 0.9), rgba(7, 11, 17, 0.75));
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.46);
+  backdrop-filter: blur(12px) saturate(120%);
+}
+.follow-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #a8b6c2;
+  font: 10px/1.2 "JetBrains Mono", ui-monospace, monospace;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.follow-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #8b94a0;
+  box-shadow: 0 0 10px rgba(139, 148, 160, 0.7);
+}
+.follow-live-dot.live {
+  background: #58e59a;
+  box-shadow: 0 0 12px rgba(88, 229, 154, 0.8);
+}
+.follow-live-dot.stale {
+  background: #f0b04d;
+}
+.follow-flight-card h1,
+.follow-waiting h1 {
+  margin: 12px 0 0;
+  color: #fff8eb;
+  font-size: clamp(32px, 4vw, 50px);
+  line-height: 1;
+  font-weight: 520;
+  letter-spacing: -0.035em;
+}
+.follow-subtitle {
+  margin: 8px 0 0;
+  color: #aab7c4;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.follow-route {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  margin: 22px 0 16px;
+  color: #f6e7c8;
+  font: 600 18px/1 "JetBrains Mono", ui-monospace, monospace;
+}
+.follow-route span:last-child {
+  text-align: right;
+}
+.follow-route-arrow {
+  color: #f0ac45;
+  font-size: 16px;
+}
+.follow-flight-card dl {
+  margin: 18px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.follow-flight-card dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 4px 0;
+}
+.follow-flight-card dt {
+  color: #7e8d9b;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.follow-flight-card dd {
+  margin: 0;
+  color: #dae4ec;
+  font: 12px "JetBrains Mono", ui-monospace, monospace;
+}
+.follow-coordinates,
+.map-attribution {
+  position: absolute;
+  z-index: 3;
+  bottom: 14px;
+  color: rgba(220, 230, 238, 0.66);
+  font: 10px "JetBrains Mono", ui-monospace, monospace;
+  text-shadow: 0 1px 3px #000;
+}
+.follow-coordinates {
+  left: 16px;
+}
+.map-attribution {
+  right: 16px;
+}
+.map-attribution a {
+  color: inherit;
+}
+
+.follow-waiting {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 30px;
+}
+.follow-waiting h1 {
+  margin-top: 18px;
+}
+.follow-waiting p {
+  max-width: 540px;
+  color: #8492a0;
+  font-size: 15px;
+  line-height: 1.6;
+}
+.follow-waiting-orbit {
+  position: relative;
+  width: 94px;
+  height: 94px;
+  margin-bottom: 24px;
+  border: 1px solid rgba(255, 194, 92, 0.24);
+  border-radius: 50%;
+  animation: waiting-spin 4s linear infinite;
+}
+.follow-waiting-orbit::before,
+.follow-waiting-orbit::after {
+  content: "";
+  position: absolute;
+  inset: 13px;
+  border: 1px solid rgba(156, 186, 205, 0.14);
+  border-radius: 50%;
+}
+.follow-waiting-orbit::after {
+  inset: 30px;
+}
+.follow-waiting-orbit span {
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  margin-left: -4px;
+  border-radius: 50%;
+  background: #ffc568;
+  box-shadow: 0 0 12px #eaa33c;
+}
+@keyframes waiting-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 700px) {
+  .follow-flight-card {
+    top: 16px;
+    left: 16px;
+    padding: 16px 18px;
+  }
+  .follow-flight-card h1 {
+    font-size: 30px;
+  }
+  .nearby-aircraft text {
+    display: none;
+  }
+}

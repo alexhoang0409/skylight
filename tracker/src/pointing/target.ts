@@ -23,25 +23,6 @@ export interface CurrentTarget {
   sinceMs: number;
 }
 
-/** Resolve a user-entered callsign, flight number, tail number, or hex. */
-export function resolveTargetIdentity(
-  aircraft: Aircraft[],
-  identity: string,
-): string | null {
-  const query = identity.trim().toUpperCase();
-  if (!query) return null;
-
-  const exactHex = aircraft.find((ac) => ac.hex.toUpperCase() === query);
-  if (exactHex) return exactHex.hex;
-
-  const matches = aircraft.filter((ac) =>
-    [ac.flight, ac.registration].some(
-      (value) => value?.trim().toUpperCase() === query,
-    ),
-  );
-  return matches.length === 1 ? matches[0].hex : null;
-}
-
 function score(ac: Aircraft, azEl: AzEl, mode: TargetMode, c: TargetCriteria): { s: number; note: string } {
   const rangeFrac = Math.max(0, 1 - azEl.slantM / (c.maxRangeMi * MI_TO_M));
   switch (mode) {

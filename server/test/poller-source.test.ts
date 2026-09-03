@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DEFAULT_CONFIG } from "@shared/index.js";
+import { DEFAULT_CONFIG, type Config } from "@shared/index.js";
 import { Poller, type PollerOptions } from "../src/datasource.js";
 import type { RouteEnricher } from "../src/enrich/routes.js";
 import { RequestGate } from "../src/request-gate.js";
@@ -66,5 +66,48 @@ describe("Poller supplement-timer lifecycle (#15)", () => {
     poller.stop();
     // 4 primary interval ticks over 4100ms; a live supplement timer would add ~1 more.
     expect(fetchSpy).toHaveBeenCalledTimes(4);
+  });
+
+  it("moves API acquisition with the selected flight", async () => {
+    let config: Config = { ...DEFAULT_CONFIG };
+    let response = 0;
+    fetchSpy.mockImplementation(async () => {
+      response++;
+      return {
+        ok: true,
+        json: async () => ({
+          aircraft: [
+            {
+              hex: "c01001",
+              flight: "ACA1664",
+              lat: response === 1 ? 37.622 : 37.63,
+              lon: response === 1 ? -122.378 : -122.37,
+              alt_baro: 12_000,
+            },
+          ],
+        }),
+      };
+    });
+
+    const poller = new Poller(makeOpts({ getConfig: () => config }));
+    poller.start();
+    await vi.advanceTimersByTimeAsync(0);
+
+    config = {
+      ...config,
+      displayMode: "follow",
+      followedFlight: {
+        hex: "c01001",
+        label: "ACA1664",
+        lat: 37.622,
+        lon: -122.378,
+      },
+    };
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(String(fetchSpy.mock.calls[1][0])).toContain("/37.622/-122.378/");
+
+    await vi.advanceTimersByTimeAsync(1000);
+    poller.stop();
+    expect(String(fetchSpy.mock.calls[2][0])).toContain("/37.63/-122.37/");
   });
 });

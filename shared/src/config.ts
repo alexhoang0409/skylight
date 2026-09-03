@@ -28,6 +28,19 @@ export type AltitudeUnit = "ft" | "m";
 export type DistanceUnit = "mi" | "km";
 /** map = flat ground plan; sky = look-up dome with altitude-aware motion. */
 export type ProjectionMode = "map" | "sky";
+/** local = the original fixed-location visualization; follow = geographic flight map. */
+export type DisplayMode = "local" | "follow";
+
+/** The exact live aircraft selected from the control panel. */
+export interface FollowedFlight {
+  /** Stable 24-bit ICAO address used to match subsequent live snapshots. */
+  hex: string;
+  /** Human-readable callsign/registration captured when it was selected. */
+  label: string;
+  /** Position captured at selection time, used to resume following after a restart. */
+  lat: number;
+  lon: number;
+}
 
 export interface Palette {
   bg: string;
@@ -234,6 +247,12 @@ export type TrackerConfigPatch = {
 };
 
 export interface Config {
+  // --- projector mode ---
+  displayMode: DisplayMode;
+  followedFlight: FollowedFlight | null;
+  /** Web Mercator zoom for the geographic follow map. */
+  followMapZoom: number;
+
   // --- location & scope ---
   centerLat: number;
   centerLon: number;
@@ -344,6 +363,10 @@ export interface Config {
 }
 
 export const DEFAULT_CONFIG: Config = {
+  displayMode: "local",
+  followedFlight: null,
+  followMapZoom: 9,
+
   // Default center: San Francisco International (SFO). Set this to your own
   // location — ideally where you'll be looking up at the ceiling.
   centerLat: 37.6213,

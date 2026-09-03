@@ -138,6 +138,13 @@ directly. The default is SFO, so until you change it you'll see San Francisco tr
 (or nothing, if your radius is small). Your airport's runways can be drawn too:
 type its ICAO/IATA code into **Location → Runways** and they're imported automatically.
 
+To make the projector follow one aircraft on a geographic map, open the control
+panel's **Projector** section, choose **Follow flight**, enter a currently live
+flight number, callsign, tail number, or ICAO hex, and tap **Follow**. Switch the
+same control back to **Local** to restore the original fixed-location sky/radar
+view. The follow view uses OpenStreetMap tiles, so its basemap needs internet
+access even when aircraft data comes from a local radio.
+
 ### With a radio (locally)
 
 ```bash
@@ -252,6 +259,8 @@ fields:
 
 | | |
 |---|---|
+| `displayMode` / `followedFlight` | Choose the original fixed local visualization or a geographic map centered on one live aircraft. Set both from **Projector** in the control panel. |
+| `followMapZoom` | Geographic follow-map zoom (4–14). |
 | `centerLat` / `centerLon` | **Your location** - where you're looking up. Editable from the panel's **Location** section (type a city, airport code, or `lat,lon`). |
 | `locationName` | Display name for the current location, shown in the control panel. |
 | `locationProfiles` | Saved places (favorite airports). Switch between them from the panel's **Location** section - tap **Save current** to store the active spot, then a chip to jump back to it. |

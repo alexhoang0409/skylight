@@ -58,3 +58,41 @@ export interface AircraftSnapshot {
   now: number;
   aircraft: Aircraft[];
 }
+
+/**
+ * Resolve an identity entered in the projector control UI against aircraft
+ * that are live right now. Callsigns ignore spaces ("AC 1664" matches
+ * "AC1664"); registrations and ICAO hex values are case-insensitive.
+ * Ambiguous identities deliberately return null so we never follow the wrong
+ * aircraft.
+ */
+export function findAircraftByIdentity(
+  aircraft: Aircraft[],
+  identity: string,
+): Aircraft | null {
+  const query = identity.trim().toUpperCase();
+  const compactQuery = query.replace(/\s+/g, "");
+  if (!query) return null;
+
+  const matches = aircraft.filter((ac) => {
+    const hex = ac.hex.trim().toUpperCase();
+    const flight = ac.flight?.trim().toUpperCase().replace(/\s+/g, "");
+    const registration = ac.registration?.trim().toUpperCase();
+    return hex === query || flight === compactQuery || registration === query;
+  });
+  if (matches.length > 0) return matches.length === 1 ? matches[0] : null;
+
+  // ADS-B normally carries an ICAO callsign (ACA1664), while people often
+  // enter its IATA flight number (AC1664). Without guessing an airline-code
+  // conversion, accept a unique live flight whose ICAO prefix begins with
+  // the entered letters and has the same numeric suffix. Ambiguity still
+  // fails closed.
+  const shorthand = compactQuery.match(/^([A-Z]{2,3})(\d+[A-Z]?)$/);
+  if (!shorthand) return null;
+  const shorthandMatches = aircraft.filter((ac) => {
+    const live = ac.flight?.trim().toUpperCase().replace(/\s+/g, "");
+    const parsed = live?.match(/^([A-Z]{2,3})(\d+[A-Z]?)$/);
+    return parsed?.[1].startsWith(shorthand[1]) && parsed?.[2] === shorthand[2];
+  });
+  return shorthandMatches.length === 1 ? shorthandMatches[0] : null;
+}

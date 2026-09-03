@@ -3,8 +3,14 @@ import type { Config, Theme } from "@shared/index.js";
 import type { SkyBody } from "./celestial.js";
 import { DEFAULT_CONFIG, formatDistance } from "@shared/index.js";
 import { useStream } from "../lib/useStream.js";
-import { useAmbientMode, kioskRequested } from "../lib/useAmbientMode.js";
+import type { Connection, StreamState } from "../lib/connection.js";
+import {
+  useAmbientMode,
+  kioskRequested,
+  type AmbientMode,
+} from "../lib/useAmbientMode.js";
 import { Renderer, type Pickable } from "./renderer.js";
+import { FollowMap } from "./FollowMap.js";
 import { PlaneCard } from "./PlaneCard.js";
 import { SatelliteCard } from "./SatelliteCard.js";
 
@@ -24,6 +30,34 @@ export function Display() {
   const { state, conn } = useStream("display");
   const ambient = useAmbientMode();
   const isKiosk = kioskRequested();
+
+  if (state.config?.displayMode === "follow") {
+    return (
+      <FollowMap
+        aircraft={state.aircraft}
+        config={state.config}
+        connected={state.connected}
+        now={state.now}
+        ambient={ambient}
+        isKiosk={isKiosk}
+      />
+    );
+  }
+
+  return <LocalDisplay state={state} conn={conn} ambient={ambient} isKiosk={isKiosk} />;
+}
+
+function LocalDisplay({
+  state,
+  conn,
+  ambient,
+  isKiosk,
+}: {
+  state: StreamState;
+  conn: Connection;
+  ambient: AmbientMode;
+  isKiosk: boolean;
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<Renderer | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -33,10 +67,6 @@ export function Display() {
   // Keep the latest config in a ref so the RAF loop always reads fresh values.
   const configRef = useRef<Config>(state.config ?? DEFAULT_CONFIG);
   configRef.current = state.config ?? DEFAULT_CONFIG;
-
-  useEffect(() => {
-    rendererRef.current?.setSelected(state.trackedTarget);
-  }, [state.trackedTarget]);
 
   // Latest ambient toggle in a ref so the keydown listener stays subscribed once.
   const ambientToggleRef = useRef(ambient.toggle);

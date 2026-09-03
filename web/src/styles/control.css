@@ -286,6 +286,39 @@ main {
   cursor: default;
 }
 
+/* Geographic flight-follow selection */
+.flight-picker {
+  padding: 13px 14px;
+  border-top: 1px solid var(--line);
+}
+.flight-picker:first-child {
+  border-top: none;
+}
+.flight-picker > label {
+  display: block;
+  color: var(--text);
+  font-size: 15px;
+  margin-bottom: 8px;
+}
+.flight-picker-bar {
+  display: flex;
+  gap: 8px;
+}
+.flight-picker-bar .text-input {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+  text-transform: uppercase;
+}
+.flight-picker-status {
+  margin-top: 7px;
+  color: var(--muted);
+  font: 11px/1.4 var(--mono);
+}
+.flight-picker-status.error {
+  color: var(--bad);
+}
+
 /* Segmented */
 .segmented {
   display: flex;

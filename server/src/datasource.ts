@@ -167,6 +167,8 @@ export class Poller {
   /** After an HTTP 429, no API requests until this timestamp. */
   private apiBackoffUntil = 0;
   private readonly requestGate: RequestGate;
+  /** Last known target position keeps API polling centered through brief gaps. */
+  private followCenter: { hex: string; lat: number; lon: number } | null = null;
 
   constructor(private o: PollerOptions) {
     this.requestGate = o.requestGate;
@@ -272,19 +274,48 @@ export class Poller {
   private withinRadius(list: Aircraft[]): Aircraft[] {
     const c = this.o.getConfig();
     const maxMi = c.radiusMiles * 1.08;
+    const center = this.queryCenter();
     return list.filter((ac) => {
       if (ac.lat == null || ac.lon == null) return true;
-      const mi = metersToMiles(rangeMeters(llToMeters(ac.lat, ac.lon, c.centerLat, c.centerLon)));
+      const mi = metersToMiles(rangeMeters(llToMeters(ac.lat, ac.lon, center.lat, center.lon)));
       return mi <= maxMi;
     });
   }
 
+  /**
+   * In flight-follow mode the target, not the saved local location, is the
+   * center of API acquisition. A local radio cannot receive a plane beyond
+   * antenna range, but an API source can keep following it as it travels.
+   */
+  private queryCenter(): { lat: number; lon: number } {
+    const c = this.o.getConfig();
+    const hex = c.displayMode === "follow" ? c.followedFlight?.hex : undefined;
+    if (!hex) {
+      this.followCenter = null;
+      return { lat: c.centerLat, lon: c.centerLon };
+    }
+
+    if (this.followCenter?.hex !== hex) {
+      const saved = c.followedFlight;
+      this.followCenter =
+        saved && Number.isFinite(saved.lat) && Number.isFinite(saved.lon)
+          ? { hex, lat: saved.lat, lon: saved.lon }
+          : null;
+    }
+    const target = this.last.find((ac) => ac.hex === hex && ac.lat != null && ac.lon != null);
+    if (target) {
+      this.followCenter = { hex, lat: target.lat!, lon: target.lon! };
+    }
+    return this.followCenter ?? { lat: c.centerLat, lon: c.centerLon };
+  }
+
   private buildApiUrl(): string {
     const c = this.o.getConfig();
+    const center = this.queryCenter();
     const r = Math.min(250, Math.ceil(c.radiusMiles * NM_PER_MILE) + 1);
     return this.o.apiUrlTemplate
-      .replace("{lat}", String(c.centerLat))
-      .replace("{lon}", String(c.centerLon))
+      .replace("{lat}", String(center.lat))
+      .replace("{lon}", String(center.lon))
       .replace("{r}", String(r));
   }
 

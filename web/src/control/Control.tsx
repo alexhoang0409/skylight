@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Airport, Config, ShowFields, LocationProfile } from "@shared/index.js";
-import { convertAltitude, convertAltitudeToFt, convertDistance, convertDistanceToMi, round } from "@shared/index.js";
+import {
+  convertAltitude,
+  convertAltitudeToFt,
+  convertDistance,
+  convertDistanceToMi,
+  findAircraftByIdentity,
+  round,
+} from "@shared/index.js";
 import { formatLatLon } from "@shared/format.js";
 import { CONSTELLATIONS } from "@shared/stars.js";
 import { geoAvailability, geoErrorMessage } from "../lib/geolocation.js";
@@ -43,6 +50,14 @@ export function Control() {
   const [apBusy, setApBusy] = useState(false);
   const [apErr, setApErr] = useState<string | null>(null);
 
+  // Flight-follow projector mode. Selection is resolved only against the
+  // current live feed so an ambiguous flight number can never pick at random.
+  const [flightQuery, setFlightQuery] = useState("");
+  const [flightErr, setFlightErr] = useState<string | null>(null);
+  useEffect(() => {
+    if (cfg?.followedFlight) setFlightQuery(cfg.followedFlight.label);
+  }, [cfg?.followedFlight?.hex, cfg?.followedFlight?.label]);
+
   // ISS pass finder (for the Sky section).
   const [tles, setTles] = useState<Tle[]>([]);
   useEffect(() => {
@@ -73,6 +88,33 @@ export function Control() {
   const setField = (k: keyof ShowFields, v: boolean) =>
     conn.patchConfig({ showFields: { ...cfg.showFields, [k]: v } });
   const statusMessage = state.status?.message ? ` · ${state.status.message}` : "";
+
+  const followFlight = () => {
+    const match = findAircraftByIdentity(state.aircraft, flightQuery);
+    if (!match) {
+      setFlightErr("No unique live match. Try the callsign, tail number, or ICAO hex shown below.");
+      return;
+    }
+    if (match.lat == null || match.lon == null) {
+      setFlightErr("That aircraft is live but has no map position yet.");
+      return;
+    }
+    const label = match.flight?.trim() || match.registration || match.hex.toUpperCase();
+    setFlightQuery(label);
+    setFlightErr(null);
+    set({
+      displayMode: "follow",
+      followedFlight: { hex: match.hex, label, lat: match.lat, lon: match.lon },
+    });
+  };
+
+  const liveFlightOptions = state.aircraft
+    .filter((ac) => ac.lat != null && ac.lon != null)
+    .sort((a, b) =>
+      (a.flight ?? a.registration ?? a.hex).localeCompare(
+        b.flight ?? b.registration ?? b.hex,
+      ),
+    );
 
   const changeLocation = async (q: string) => {
     if (!q.trim()) return;
@@ -234,6 +276,76 @@ export function Control() {
       </header>
 
       <main>
+        <Section title="Projector">
+          <Row label="Display mode" hint="fixed local view or a moving street map">
+            <Segmented
+              value={cfg.displayMode}
+              options={[
+                { value: "local", label: "Local" },
+                { value: "follow", label: "Follow flight" },
+              ]}
+              onChange={(v) => set({ displayMode: v })}
+            />
+          </Row>
+          {cfg.displayMode === "follow" && (
+            <>
+              <div className="flight-picker">
+                <label htmlFor="follow-flight">Flight, tail, or ICAO hex</label>
+                <div className="flight-picker-bar">
+                  <input
+                    id="follow-flight"
+                    className="text-input"
+                    value={flightQuery}
+                    list="live-flight-options"
+                    placeholder="AC1664"
+                    autoComplete="off"
+                    spellCheck={false}
+                    onChange={(event) => {
+                      setFlightQuery(event.target.value);
+                      setFlightErr(null);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        followFlight();
+                      }
+                    }}
+                  />
+                  <datalist id="live-flight-options">
+                    {liveFlightOptions.map((ac) => (
+                      <option
+                        key={ac.hex}
+                        value={ac.flight ?? ac.registration ?? ac.hex.toUpperCase()}
+                      >
+                        {[ac.registration, ac.typeName].filter(Boolean).join(" · ")}
+                      </option>
+                    ))}
+                  </datalist>
+                  <button type="button" className="loc-btn" onClick={followFlight}>
+                    Follow
+                  </button>
+                </div>
+                <div className={`flight-picker-status ${flightErr ? "error" : ""}`}>
+                  {flightErr ??
+                    (cfg.followedFlight
+                      ? `Following ${cfg.followedFlight.label} on the projector`
+                      : `${liveFlightOptions.length} positioned aircraft available`)}
+                </div>
+              </div>
+              <Row label="Map zoom" hint="lower shows more of the route">
+                <Slider
+                  id="followMapZoom"
+                  value={cfg.followMapZoom}
+                  min={4}
+                  max={14}
+                  step={1}
+                  onChange={(v) => set({ followMapZoom: v })}
+                />
+              </Row>
+            </>
+          )}
+        </Section>
+
         <Section title="Location">
           <Row label={cfg.locationName || "Location"} hint={formatLatLon(cfg.centerLat, cfg.centerLon)}>
             <div className="loc-bar">
