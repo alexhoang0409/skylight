@@ -128,12 +128,19 @@ body,
   position: absolute;
   display: block;
   user-select: none;
+  backface-visibility: hidden;
+}
+.follow-map-tiles {
+  contain: strict;
   filter: invert(1) hue-rotate(180deg) brightness(0.55) saturate(0.5) contrast(1.15);
+  transform: translateZ(0);
 }
 .follow-map-tile-plane {
   position: absolute;
   left: 0;
   top: 0;
+  transform-origin: 0 0;
+  backface-visibility: hidden;
   will-change: transform;
 }
 .follow-map-shade {

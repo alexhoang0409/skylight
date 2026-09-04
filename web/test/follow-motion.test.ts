@@ -49,6 +49,33 @@ describe("FollowMotionModel", () => {
     expect(halfway.flight).toBe("ACA1664");
   });
 
+  it("bases its render clock only on the followed aircraft and changes it gradually", () => {
+    const model = new FollowMotionModel();
+    const target = (lon: number) => aircraft({ hex: "target", lon });
+    const nearby = (lon: number) => aircraft({ hex: "nearby", lon });
+    const options = { ...OPTIONS, followedHex: "target" };
+
+    model.update([target(0), nearby(0)], 0);
+    model.frame(0, options);
+    // A nearby receiver updates much faster, while the followed plane's real
+    // coordinate changes on its normal two-second cadence.
+    model.update([target(0), nearby(0.5)], 500);
+    model.frame(500, options);
+    model.update([target(0), nearby(1)], 1_000);
+    model.frame(1_000, options);
+    model.update([target(0), nearby(1.5)], 1_500);
+    model.frame(1_500, options);
+    model.update([target(2), nearby(2)], 2_000);
+    model.frame(2_000, options);
+
+    // At 3.1 s the target should be around the middle of its real segment.
+    // Using nearby intervals would move the render clock and put it near the
+    // newest coordinate instead, causing the camera pulse seen at refresh.
+    const rendered = model.frame(3_100, options).find((ac) => ac.hex === "target")!;
+    expect(rendered.lon).toBeGreaterThan(0.8);
+    expect(rendered.lon).toBeLessThan(1.2);
+  });
+
   it("takes the shortest path across the date line and through north", () => {
     const model = new FollowMotionModel();
     model.update([aircraft({ lon: 179, track: 350 })], 0);

@@ -127,6 +127,7 @@ function useSmoothAircraft(aircraft: Aircraft[], now: number, config: Config): A
       smoothing: config.smoothing,
       maxExtrapolationSec: config.maxExtrapolationSec,
       staleSec: config.staleSec,
+      followedHex: config.followedFlight?.hex,
     } satisfies FollowMotionOptions,
     maxFps: config.maxFps,
   });
@@ -136,6 +137,7 @@ function useSmoothAircraft(aircraft: Aircraft[], now: number, config: Config): A
       smoothing: config.smoothing,
       maxExtrapolationSec: config.maxExtrapolationSec,
       staleSec: config.staleSec,
+      followedHex: config.followedFlight?.hex,
     },
     maxFps: config.maxFps,
   };

@@ -20,6 +20,7 @@ interface MotionFix {
 interface MotionTrack {
   aircraft: Aircraft;
   fixes: MotionFix[];
+  fixIntervals: number[];
   lastSeenAt: number;
 }
 
@@ -35,6 +36,7 @@ export interface FollowMotionOptions {
   smoothing: number;
   maxExtrapolationSec: number;
   staleSec: number;
+  followedHex?: string | null;
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -105,7 +107,9 @@ function median(values: number[]): number | null {
 export class FollowMotionModel {
   private tracks = new Map<string, MotionTrack>();
   private displayed = new Map<string, DisplayedPosition>();
-  private fixIntervals: number[] = [];
+  private delayTrackHex: string | null = null;
+  private displayedDelayMs = INITIAL_RENDER_DELAY_MS;
+  private delayUpdatedAt: number | null = null;
 
   update(aircraft: Aircraft[], at: number): void {
     for (const ac of aircraft) {
@@ -114,6 +118,7 @@ export class FollowMotionModel {
       const track: MotionTrack = existing ?? {
         aircraft: ac,
         fixes: [],
+        fixIntervals: [],
         lastSeenAt: at,
       };
       // Identity fields can temporarily disappear from aggregator snapshots.
@@ -143,8 +148,8 @@ export class FollowMotionModel {
         if (lastFix) {
           const interval = fixAt - lastFix.at;
           if (interval >= 250 && interval <= 10_000) {
-            this.fixIntervals.push(interval);
-            this.fixIntervals = this.fixIntervals.slice(-32);
+            track.fixIntervals.push(interval);
+            track.fixIntervals = track.fixIntervals.slice(-8);
           }
         }
         track.fixes.push({
@@ -160,11 +165,29 @@ export class FollowMotionModel {
     }
   }
 
-  private renderDelayMs(): number {
-    const interval = median(this.fixIntervals);
-    return interval == null
+  private renderDelayMs(at: number, followedHex: string | null): number {
+    const track = followedHex ? this.tracks.get(followedHex) : undefined;
+    const interval = median(track?.fixIntervals ?? []);
+    // A little more than one genuine target-fix interval keeps render time
+    // between known positions even when one update arrives slightly late.
+    const desired = interval == null
       ? INITIAL_RENDER_DELAY_MS
-      : clamp(interval * 1.05, MIN_RENDER_DELAY_MS, MAX_RENDER_DELAY_MS);
+      : clamp(interval * 1.2, MIN_RENDER_DELAY_MS, MAX_RENDER_DELAY_MS);
+
+    if (this.delayTrackHex !== followedHex) {
+      this.delayTrackHex = followedHex;
+      this.displayedDelayMs = desired;
+      this.delayUpdatedAt = at;
+      return this.displayedDelayMs;
+    }
+
+    const elapsed = this.delayUpdatedAt == null ? 0 : clamp(at - this.delayUpdatedAt, 0, 1_000);
+    this.delayUpdatedAt = at;
+    // Never let a single uneven provider refresh shift the map's clock. A
+    // 12-second time constant adapts to real cadence changes imperceptibly.
+    const amount = 1 - Math.exp(-elapsed / 12_000);
+    this.displayedDelayMs += (desired - this.displayedDelayMs) * amount;
+    return this.displayedDelayMs;
   }
 
   private desiredPosition(track: MotionTrack, renderAt: number, options: FollowMotionOptions): MotionFix {
@@ -191,7 +214,11 @@ export class FollowMotionModel {
   }
 
   frame(at: number, options: FollowMotionOptions): Aircraft[] {
-    const renderAt = at - (options.interpolate ? this.renderDelayMs() : 0);
+    const renderAt = at - (
+      options.interpolate
+        ? this.renderDelayMs(at, options.followedHex ?? null)
+        : 0
+    );
     const smoothing = clamp(options.smoothing, 0, 0.99);
     const staleMs = Math.max(1, options.staleSec) * 1000;
     const result: Aircraft[] = [];
