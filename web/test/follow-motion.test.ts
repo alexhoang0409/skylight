@@ -25,12 +25,28 @@ describe("FollowMotionModel", () => {
   it("interpolates continuously between buffered provider snapshots", () => {
     const model = new FollowMotionModel();
     model.update([aircraft({ lon: 0 })], 0);
+    // Skylight may poll four times while the upstream feed still returns the
+    // exact same position. Repeated coordinates must not become fake fixes.
+    model.update([aircraft({ lon: 0 })], 500);
+    model.update([aircraft({ lon: 0 })], 1_000);
+    model.update([aircraft({ lon: 0 })], 1_500);
     model.update([aircraft({ lon: 2 })], 2_000);
 
     // The measured 2 s cadence produces a 2.1 s render buffer. At 3.1 s,
     // render time is exactly halfway between the two known fixes.
     expect(model.frame(3_100, OPTIONS)[0].lon).toBeCloseTo(1, 6);
     expect(model.frame(3_600, OPTIONS)[0].lon).toBeCloseTo(1.5, 6);
+  });
+
+  it("uses provider age and retains stable identity metadata", () => {
+    const model = new FollowMotionModel();
+    model.update([aircraft({ lon: 0, flight: "ACA1664" })], 0);
+    model.update([aircraft({ lon: 2, flight: undefined, seen: 0.5 })], 2_500);
+
+    // The second coordinate was observed at t=2 s, not when fetched at 2.5 s.
+    const halfway = model.frame(3_100, OPTIONS)[0];
+    expect(halfway.lon).toBeCloseTo(1, 6);
+    expect(halfway.flight).toBe("ACA1664");
   });
 
   it("takes the shortest path across the date line and through north", () => {

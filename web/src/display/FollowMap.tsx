@@ -379,10 +379,10 @@ export function FollowMap({
               <g
                 key={ac.hex}
                 className="nearby-aircraft"
-                transform={`translate(${point.x} ${point.y}) rotate(${ac.track ?? 0})`}
+                transform={`translate(${point.x} ${point.y})`}
               >
-                <path d={planePath(5)} />
-                <text transform={`rotate(${-(ac.track ?? 0)})`} x={9} y={4}>
+                <path d={planePath(5)} transform={`rotate(${ac.track ?? 0})`} />
+                <text x={9} y={4}>
                   {flightName(ac, ac.hex.toUpperCase())}
                 </text>
               </g>

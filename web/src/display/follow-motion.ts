@@ -105,19 +105,9 @@ function median(values: number[]): number | null {
 export class FollowMotionModel {
   private tracks = new Map<string, MotionTrack>();
   private displayed = new Map<string, DisplayedPosition>();
-  private snapshotIntervals: number[] = [];
-  private lastUpdateAt: number | null = null;
+  private fixIntervals: number[] = [];
 
   update(aircraft: Aircraft[], at: number): void {
-    if (this.lastUpdateAt != null) {
-      const interval = at - this.lastUpdateAt;
-      if (interval >= 250 && interval <= 10_000) {
-        this.snapshotIntervals.push(interval);
-        this.snapshotIntervals = this.snapshotIntervals.slice(-8);
-      }
-    }
-    this.lastUpdateAt = at;
-
     for (const ac of aircraft) {
       if (ac.lat == null || ac.lon == null) continue;
       const existing = this.tracks.get(ac.hex);
@@ -126,22 +116,52 @@ export class FollowMotionModel {
         fixes: [],
         lastSeenAt: at,
       };
-      track.aircraft = ac;
+      // Identity fields can temporarily disappear from aggregator snapshots.
+      // Keep the last useful values so a callsign never flickers into a hex.
+      track.aircraft = {
+        ...ac,
+        flight: ac.flight ?? existing?.aircraft.flight,
+        registration: ac.registration ?? existing?.aircraft.registration,
+        typeCode: ac.typeCode ?? existing?.aircraft.typeCode,
+        typeName: ac.typeName ?? existing?.aircraft.typeName,
+      };
       track.lastSeenAt = at;
-      track.fixes.push({
-        at,
-        lat: ac.lat,
-        lon: ac.lon,
-        track: ac.track,
-        gs: ac.gs,
-      });
-      track.fixes = track.fixes.slice(-MAX_FIXES);
+      const lastFix = track.fixes[track.fixes.length - 1];
+      const samePosition = lastFix?.lat === ac.lat && lastFix.lon === ac.lon;
+      if (samePosition) {
+        // The Pi can poll faster than the upstream position feed. Restamping a
+        // repeated coordinate as a new fix makes the plane sit still and then
+        // cover the entire distance in one short refresh interval.
+        lastFix.track = ac.track ?? lastFix.track;
+        lastFix.gs = ac.gs ?? lastFix.gs;
+      } else {
+        const seenSeconds = Number.isFinite(ac.seen)
+          ? clamp(ac.seen ?? 0, 0, 60)
+          : 0;
+        const observedAt = at - seenSeconds * 1000;
+        const fixAt = lastFix ? Math.max(lastFix.at + 1, observedAt) : observedAt;
+        if (lastFix) {
+          const interval = fixAt - lastFix.at;
+          if (interval >= 250 && interval <= 10_000) {
+            this.fixIntervals.push(interval);
+            this.fixIntervals = this.fixIntervals.slice(-32);
+          }
+        }
+        track.fixes.push({
+          at: fixAt,
+          lat: ac.lat,
+          lon: ac.lon,
+          track: ac.track,
+          gs: ac.gs,
+        });
+        track.fixes = track.fixes.slice(-MAX_FIXES);
+      }
       this.tracks.set(ac.hex, track);
     }
   }
 
   private renderDelayMs(): number {
-    const interval = median(this.snapshotIntervals);
+    const interval = median(this.fixIntervals);
     return interval == null
       ? INITIAL_RENDER_DELAY_MS
       : clamp(interval * 1.05, MIN_RENDER_DELAY_MS, MAX_RENDER_DELAY_MS);
