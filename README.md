@@ -396,6 +396,8 @@ RTL-SDR ──USB──> dump1090-fa ──> aircraft.json (:8080)
   [drivers](https://github.com/rtlsdrblog/rtl-sdr-blog)
 - Routes / aircraft enrichment: [adsbdb](https://www.adsbdb.com/) · aircraft feed:
   [adsb.fi](https://adsb.fi/) · ground feed: [adsb.lol](https://adsb.lol/)
+- Geographic map: [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright) ·
+  location search: [Nominatim](https://nominatim.openstreetmap.org/)
 - Satellite elements: [Celestrak](https://celestrak.org/) · airport data:
   [OurAirports](https://ourairports.com/)
 

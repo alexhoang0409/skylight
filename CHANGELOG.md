@@ -10,7 +10,8 @@ original Skylight project.
 - Added a new projector mode selector:
   - **Local** preserves the original fixed-location sky/radar visualization.
   - **Follow flight** displays a geographic map centered on a selected aircraft.
-- Added an OpenStreetMap-based flight-follow display.
+- Added a flight-follow display using map data and tiles from
+  [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright).
 - Added adjustable follow-map zoom.
 - Added nearby aircraft suggestions from the currently available feed.
 - Added global live-aircraft search when an aircraft is not available locally.
