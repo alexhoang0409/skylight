@@ -1,3 +1,30 @@
+> [!NOTE]
+> **About this fork**
+>
+> Thank you [cpaczek](https://github.com/cpaczek) for this amazing repo. I added/modified stuffs here according to my preference and some use-case I want to use this project for (mostly the projecting functionality using public API like adsb.fi, etc.)
+>
+> As I'm still actively using this project (stuffs flying around are cool), I will try my best to keep it up-to-date. Feel free to put up an issue if you encounter any.
+
+## What this fork adds
+
+- API-first Raspberry Pi installation that works without an RTL-SDR receiver.
+- Optional RTL-SDR and `dump1090` installation using `ENABLE_RADIO=1`.
+- Configurable airport ground-traffic display instead of an SFO-specific implementation.
+- Public ADS-B aircraft and ground-traffic providers with configurable endpoints.
+- Shared request throttling, priority handling, and rate-limit backoff.
+- A geographic projector mode that follows a selected live flight.
+- Nearby and global flight search by flight number, callsign, registration, or ICAO hex.
+- Airborne/ground status in flight-search results.
+- Smooth aircraft movement and stabilized follow-map camera motion.
+- Configurable map zoom, smoothing, extrapolation, stale-aircraft timeout, and FPS limit.
+
+See [CHANGELOG.md](CHANGELOG.md) for details.
+
+<p align="center">
+  ...
+</p>
+
+
 <h1 align="center">Skylight</h1>
 
 <p align="center">
